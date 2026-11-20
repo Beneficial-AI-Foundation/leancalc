@@ -1,0 +1,50 @@
+LeanCalc Phase 2 reference and interchange rules (specified before implementation)
+
+Workbook: 1-32 uniquely named sheets, case-insensitive names, each 100 x 26.
+Names: 1-31 characters, excluding []:*?/\ and control characters. Spaces and
+apostrophes allowed; quoted reference names escape apostrophes by doubling.
+Native LeanCalc-2 stores all sheets and the active sheet. LeanCalc-1 loads as Sheet1.
+
+References: A1, $A$1, A$1, $A1, Sheet2!A1, 'Annual total'!$A1.
+Copy/fill shifts only unanchored row/column coordinates by the destination offset,
+including explicitly qualified references. Unqualified references use the new
+formula's sheet. Shifts outside A1:Z100 become #REF!.
+Cut is a deferred, atomic move on Paste. Formulas anywhere that reference moved
+cells follow them, including anchored references. Moved formulas retain references
+to cells outside the moved block (qualifying the original sheet when necessary).
+Overlapping moves use a snapshot. Moves that would split a referenced range
+are rejected; use Copy or move the entire referenced range. Changing cells after Cut invalidates the cut;
+changing only the active sheet is allowed. An external clipboard paste is a copy.
+
+Insert/delete affects one whole row or column at the selection's top/left edge.
+References in every sheet follow shifted cells regardless of $ anchors. Deleted
+single-cell targets become #REF!. Ranges shrink across deletion, expand when
+insertion occurs inside them, and become #REF! if no cells remain. Insertion is
+rejected if it would discard nonempty cells at the sheet edge. References shifted
+outside the grid become #REF!. Renaming sheets rewrites qualified references;
+deleting sheets turns references to that sheet into #REF!.
+
+Selection: click/arrow starts a cell selection; Shift-click/Shift-arrow or drag
+extends a rectangle. Copy/paste uses the rectangle with its top-left destination;
+reject out-of-bounds or ragged pasted tables before changing any cells.
+Fill Down copies the top selected row; Fill Right copies the left selected column,
+with the same formula adjustment as Copy. Clear, Paste, Cut/Paste, Fill, structural
+edits and sheet operations are each one workbook-wide undo step (100 snapshots).
+Undo/redo restores the active sheet along with the workbook.
+
+Functions: SUM/MIN/MAX/AVERAGE/COUNT accept scalar expressions and rectangular
+ranges; skip blank/text range cells; propagate formula errors. MIN/MAX of an empty
+numeric set are zero; AVERAGE is #DIV/0!; COUNT is zero. IF has exactly 3 arguments,
+evaluates only the chosen branch, treats numeric zero as false, supports quoted
+string results, and supports = <> < <= > >= comparisons. True/false are 1/0.
+Arithmetic stays exact rational; cross-sheet cycles and work budgets remain checked.
+
+CSV: UTF-8 (optional BOM on import), comma or semicolon chosen explicitly in the
+File menu. Double quotes delimit fields; doubled double quotes escape a quote;
+quoted fields may contain delimiters and CR/LF. Accept CRLF/LF/CR record endings.
+Export CRLF and quote fields as needed. Import replaces the active sheet in one
+undo step after full validation; pad shorter rows, reject more than 100 rows or
+26 columns, malformed quotes, NUL or cells exceeding 4096 characters. Imported
+formulas are literal text, never executed. Export displayed results of the smallest
+A1-anchored rectangle containing nonempty raw cells; a blank sheet exports one
+empty cell. Export does not change the workbook's native save path or dirty state.

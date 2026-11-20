@@ -1,0 +1,1151 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.85in,headheight=15pt]{geometry}
+\usepackage{mathpazo,microtype,booktabs,longtable,array,enumitem,xcolor}
+\usepackage{fancyhdr,lastpage}
+\usepackage[colorlinks=true,linkcolor=teal!65!black,urlcolor=blue!55!black,bookmarksopen=true]{hyperref}
+\hypersetup{pdftitle={A spreadsheet tool written in Lean},pdfauthor={LeanCalc project}}
+\definecolor{ink}{HTML}{183546}
+\definecolor{pale}{HTML}{EFF5F7}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlength{\emergencystretch}{3em}
+\setlist{leftmargin=1.5em,itemsep=3pt,topsep=3pt}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\note}[1]{\par\smallskip\noindent\colorbox{pale}{\parbox{\dimexpr\linewidth-2\fboxsep}{#1}}\par\smallskip}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\textcolor{ink}{LeanCalc | Spreadsheet guide}}
+\fancyhead[R]{\small User guide and development road map}
+\fancyfoot[L]{\small 18 November 2026}
+\fancyfoot[R]{\small\thepage\ / \pageref*{LastPage}}
+\setcounter{tocdepth}{1}
+\begin{document}
+\thispagestyle{empty}
+{\small\sffamily\color{teal!65!black} PRODUCTIVITY TOOLS / LEANCALC\par}
+\vspace{18pt}
+{\LARGE\bfseries\color{ink} A spreadsheet tool written in Lean\par}
+\vspace{9pt}
+{\large Sparse sheets, workbook objects, and OpenDocument interchange\par}
+\vspace{8pt}
+LeanCalc 0.5.1 \quad | \quad Lean 4.35.0-rc3 \quad | \quad 18 November 2026
+\vspace{14pt}\hrule\vspace{12pt}
+\note{\textbf{Version 0.5.1.} Multiple named sheets, cross-sheet and
+anchored references, formula range picking, worksheet tabs, CSV, 81 function names,
+incremental recalculation, formatting, 1,000-row sheets, and a limited ODS adapter. The engine and application commands are written in Lean, compiled to C,
+and linked into a native macOS app. All \textbf{490 native/headless checks pass}.}
+\vspace{10pt}
+\tableofcontents
+\vfill
+The table of contents is clickable. Section 3 remains deliberately blank.
+The user confirmed that Phase 1 navigation became quick after the grid-rendering
+fix; that fix is retained. Phase 2's desktop controls still need acceptance testing.
+
+\small Run \code{python3 lean_calc/build_document.py} to check the test catalogues
+and compile this manual and the current-turn conversation record. Rebuild the app
+first whenever Lean or bridge source changes.
+\clearpage
+
+\section{User guide}
+\subsection{Start and try a workbook}
+Open \code{dist/LeanCalc.app}. Save work and quit an older running copy first;
+the new window title says \code{LeanCalc 0.5.1}. The app targets Apple silicon on
+macOS 14 or later and includes its runtime. Python and Lean are build tools only.
+The diagnostic launcher, \code{dist/Diagnose LeanCalc.command}, starts this exact
+bundle and records startup information.
+
+The selected column-chart artwork is now the app icon. Drag one \code{.lcalc},
+\code{.csv}, or supported \code{.ods} file onto LeanCalc in Finder or the Dock.
+Files dropped during startup are queued until the interface is ready. An already
+running app opens the dropped file using its existing save/discard/cancel prompt.
+CSV and ODS open as new unsaved workbooks; save them as \code{.lcalc} to retain
+native details. Dropped CSV uses commas; semicolon import remains in the File menu.
+File $>$ Open accepts the same three formats. Multiple-file drops are rejected
+with a message so no workbook is silently replaced. Unsupported ODS features keep
+the existing explicit diagnostics.
+
+The implementation uses \href{https://www.tcl-lang.org/man/tcl9.1/TkCmd/tk_mac.html}{Tk's macOS OpenDocument event}
+and \href{https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html}{Apple's document-type registration}.
+The handler and startup queue are regression-tested headlessly. End-to-end Finder
+and Dock gestures still need a desktop check in this environment.
+
+
+\begin{enumerate}
+\item Choose File $>$ Open and select
+\code{lean_calc/examples/Phase2-workbook.lcalc}. It contains an Inputs sheet and
+a Summary sheet demonstrating cross-sheet formulas, aggregates, IF, and an
+absolute tax-rate reference.
+\item Choose Inputs by clicking its tab below the grid. Change B2 to
+\code{20}, then press Enter. Choose Summary to see the new totals.
+\item Choose Sheet $>$ Add sheet, or click \textbf{+}. Names are unique
+without regard to case, 1--31 characters, with no leading/trailing whitespace,
+control characters, or \code{[]:*?/} or a backslash. Spaces and apostrophes are allowed.
+\item Enter \code{=Inputs!D2} in a cell. For a sheet name with spaces, use
+\code{='Annual total'!A1}. Double an apostrophe inside a quoted sheet name:
+\code{='Bob''s data'!A1}.
+\item Save as a native \code{.lcalc} workbook. All sheets are saved together.
+The active sheet at the last explicit save is retained on reopening.
+\end{enumerate}
+
+A workbook contains 1--32 sheets, initially 100 rows and columns A through Z.
+Sheet $>$ Expand to 1,000 rows grows the active sheet. Native version 3 saves
+nonempty cells compactly; version 4 also stores workbook objects. Working sheets and display caches now store only populated entries. Thin gray grid lines and the
+green active-cell outline remain. The long image strips introduced in 0.1.4
+avoid expensive one-pixel tiling on repaint.
+
+\textbf{Worksheet tabs.} Named tabs sit along the bottom of the grid. Click a
+tab to switch sheets; the active tab has a green underline. Double-click a tab
+to rename its sheet, or use the Sheet menu. The small \textbf{+} adds a sheet.
+The arrow buttons scroll the tab strip when many sheets are open; switching
+sheets automatically reveals the active tab. The name box, compact formula bar,
+and quiet status line keep the main window uncluttered.
+
+\clearpage
+\subsection{Functions and presentation}
+\textbf{Math.} There are 81 supported function names, including aliases. Names
+are case-insensitive. Try \code{=SIN(PI()/2)}, \code{=ABS(-3)},
+\code{=SQRT(81)}, \code{=ROUND(2.675,2)}, or \code{=AVERAGE(A1:A10)}.
+\code{SAVERAGE} is an alias for \code{AVERAGE}. Dragging ranges still works.
+
+\begingroup\small
+\begin{longtable}{@{}P{0.20\linewidth}P{0.74\linewidth}@{}}
+\toprule Family & Supported names\\\midrule
+Arithmetic & ABS, SIGN, INT, TRUNC, MOD, QUOTIENT, POWER, SQRT, SQRTPI\\
+Rounding & ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, EVEN, ODD\\
+Trigonometry & SIN, COS, TAN, ASIN, ACOS, ATAN, ATAN2; SINH, COSH, TANH, ASINH, ACOSH, ATANH\\
+Constants and logs & PI, EXP, LN, LOG, LOG10, LOG2, RADIANS, DEGREES\\
+Combinatorics & FACT, COMBIN, GCD, LCM\\
+Aggregates & SUM, MIN, MAX, AVERAGE, SAVERAGE, COUNT, PRODUCT, SUMSQ, MEDIAN\\
+Statistics & VAR, VAR.S, VAR.P, STDEV, STDEV.S, STDEV.P\\
+Logic & IF, IFERROR, AND, OR, NOT\\
+Criteria & COUNTIF, SUMIF, AVERAGEIF, SUMPRODUCT\\
+Lookups & INDEX, MATCH, VLOOKUP (exact matches)\\
+Text & LEN, LEFT, RIGHT, MID, UPPER, LOWER, TRIM, CONCATENATE, SUBSTITUTE\\
+Dates & DATE, YEAR, MONTH, DAY\\\bottomrule
+\end{longtable}
+\endgroup
+Angles are radians. Trigonometry, logarithms, roots, and noninteger powers use
+binary64 math rounded to 15 significant decimal digits. Ordinary decimal and
+integer arithmetic remains exact rational. ROUND rounds halfway away from zero;
+INT floors, while TRUNC moves toward zero. VAR/STDEV and their .S aliases use
+sample statistics; .P uses population statistics. ATAN2 takes $(x,y)$, as in Excel.
+Invalid domains and overflow return \texttt{\#NUM!}; scalar text or wrong arity
+returns \texttt{\#VALUE!}. Existing IF arity errors retain \texttt{\#PARSE!}.
+
+The operators \code{^} and postfix \texttt{\%} are supported, along with scientific
+literals such as \code{1e-3}. Power associates left, and unary minus binds before
+power, matching Excel. Aggregate ranges skip blank/text cells. Scalar functions
+such as ABS reject a rectangle; use a single cell or aggregate it first.
+This is a declared function set, not a claim of complete Excel formula coverage.
+Open \code{lean_calc/examples/Math-gallery.lcalc} for 61 example formulas.
+
+\textbf{Data menu.} Find (Cmd+F) and Find next (Cmd+G) search the active sheet's
+raw and displayed text, case-insensitively, wrapping at the end. Select at least
+two data rows, excluding headers, to sort. The active cell's column supplies the
+sort key. Equal keys keep their order, and blank cells sort last. Sorting moves
+only the selected rectangle and is one undo step; moved formulas adjust relative
+row references. References outside the rectangle continue to refer to coordinates.
+Filter matches displayed text in the active column. Clear filter restores all rows.
+Filtering is a temporary view and does not remove data from exports.
+
+\textbf{Format menu.} Choose General, Number, Currency, Percent, Fraction, Date, Bold,
+a font family/size, column alignment, or column width. Number/currency/percent
+use two decimal places and never change the stored value. Currency currently
+uses a dollar symbol. Fonts, formats, and explicit column settings persist and
+are undoable. Mouse-dragged widths remain temporary; use Format $>$ Column width
+to save a width. Row height is still fixed, so larger fonts may need desktop review.
+
+\textbf{Print export.} File $>$ Export printable sheet saves an HTML file of the
+active sheet's displayed values. Open it in a browser and choose Print or Save
+as PDF. It includes a landscape print layout and escaped workbook text.
+
+\textbf{Measured scale.} A 1,000-row by 26-column fixture with 500 formulas
+referencing A1 measured 4 ms initial display, 4 ms after editing A1, and 40 MiB
+peak resident memory on this host. Only 501 cells were recalculated. This native
+headless benchmark excludes desktop events and repainting. The target for this
+fixture is under 250 ms per edit and under 256 MiB peak memory. Forty edit
+sequences are checked against a full-calculation oracle.
+
+\subsection{OpenDocument subset: Phase 4 preview}
+File $>$ Import ODS reads supported values/formulas/styles into a new unsaved
+workbook. File $>$ Export ODS writes all sheets. The original imported file is
+not the native Save target. Save \code{.lcalc} to retain exact rational values
+and all native details. The supplied \code{lean_calc/examples/Interoperability.ods}
+exercises two sheets, references, math, Unicode, and basic styles.
+
+Supported interchange includes numeric/text/boolean cells, the implemented
+formula set and references, two-decimal number/currency/percent formats,
+fraction styles, bold, font family/size, and column widths/alignment.
+Numeric values export at 15 significant digits; raw numeric spelling and exact
+rational identity are intentional conversions. Fonts may substitute to
+Helvetica, Times, or Menlo. ODS does not preserve LeanCalc undo history.
+
+Merged cells, unsupported formulas, detected drawings, validation, named
+expressions, annotations, and unsupported style properties are rejected.
+Complex layout and styles defined only in a separate \code{styles.xml} are
+outside this initial subset. The reader limits XML size and repeated cells and
+rejects DTD/entity declarations. The app does not support arbitrary ODS files.
+The package and formula conversion follow the
+\href{https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part2-packages.html}{OASIS package specification} and
+\href{https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part3-schema.html}{ODF schema}.
+
+\textbf{Acceptance status.} Generated ODS round trips and validation against the OASIS ODF 1.3 XML schema
+pass, but comparison with
+Apache OpenOffice/LibreOffice has not been performed here. Phase 4 is a preview;
+XLSX and executable macros are not implemented. Native Phase 5 features are
+described below; their desktop acceptance remains pending.
+Desktop appearance/dialog acceptance also remains pending because Tk cannot
+start inside this sandbox. These gates are not counted as passing tests.
+
+\subsection{Workbook objects and advanced functions}
+Select a rectangle before using the Insert or Data menus. Save as \code{.lcalc}
+to retain objects. Open \code{lean_calc/examples/Features-gallery.lcalc} for names,
+a custom function, a conditional format, a chart and an embedded PNG; open
+\code{Pivot-gallery.lcalc} for a refreshable summary. Insert $>$ Sheet objects
+shows the current sheet's objects in a separate tabbed window. Insert $>$ Remove
+object removes the numbered definition; Undo restores it. Chart views refresh
+when reopened. These windows keep the main cell grid uncluttered.
+
+\begin{longtable}{@{}P{0.22\linewidth}P{0.72\linewidth}@{}}
+\toprule Feature & Operation and declared limits\\\midrule
+Named ranges & Insert $>$ Named range. Names use letters/underscores, are globally
+unique without case, and cannot shadow built-ins. Use \code{=SUM(Revenue)} or a
+single-cell name in arithmetic. Names track sheet renames, row/column edits and
+complete-range cuts. A cut splitting a named range is rejected.\\
+Validation & Data $>$ Validation. Enter \code{number,0,100}, \code{whole,0,100}, or
+\code{list,Apple,pear}. Blanks are allowed; lists match exact displayed strings.
+Invalid edits, dependent recalculations, paste, fill, CSV replacement and sort are
+rejected atomically. Escape cancels an invalid pending draft. Removing a rule is undoable.\\
+Conditional formatting & Data $>$ Conditional format. Enter \code{>,15,green}.
+Comparisons are \code{< > = <= >= <>}; colors are red, green, yellow or blue.
+Rules use evaluated numbers, skip blanks/text, and the last matching rule wins.
+Colors appear in the grid and printable HTML.\\
+Charts & Insert $>$ Chart; choose bar or line. Up to 200 selected rows; first
+column supplies labels and second supplies values, or one column supplies values
+with row-number labels. Blank/text values are skipped, errors reported. Charts
+appear in the objects window and as SVG in printable HTML.\\
+Images & Insert $>$ PNG image embeds the file, anchored at the selected cell.
+Maximum 1.4 MB compressed, 4 million pixels, 4,096 pixels per side. The objects
+window scales the preview; printable HTML embeds it. Native save retains the
+original PNG; no external file is needed on reopening.\\
+Pivot tables & Select a range including one header row; Insert $>$ Pivot table.
+Choose a new sheet name and, for example, \code{A,B,SUM}. One grouping column and
+one value column; SUM, COUNT (nonempty values), AVERAGE, MIN or MAX. Blank groups
+are skipped; numeric aggregates ignore text. Data $>$ Refresh pivot table updates
+the active summary in one undo step and replaces its output cells. Source sheet
+renames and structural edits update its definition.\\
+Extensibility & Insert $>$ Custom function: \code{DOUBLE(X)=X*2}. Parameters are
+letters/underscores, at most 16; functions may use other formulas/names. The usual
+length/depth/work limits apply, including to recursive definitions. Data exports
+and imports versioned JSON function packs. They contain expressions, with no
+shell, file, network, plugin-loading or macro execution.\\\bottomrule
+\end{longtable}
+Up to 128 objects per sheet. Copy/fill copy cell values and basic cell styles;
+they do not duplicate globally named objects. Range objects stay at coordinates
+when sorting. Complete cuts move local objects; partial cuts that would split
+objects are rejected. Deleting an entire named range removes its definition.
+Pivot headers and key/value columns cannot be structurally deleted while the
+pivot definition exists. Deleting its source sheet leaves a definition whose
+refresh reports the missing source. Preview windows show a snapshot; reopen to
+see edits. The native workbook remains the source of truth.
+
+\textbf{Conditional aggregates and lookup.} COUNTIF, SUMIF and AVERAGEIF accept
+one rectangular criterion range and an optional matching sum/average range.
+Numeric comparisons and case-insensitive literal text are supported; wildcards
+are literal characters. SUMPRODUCT accepts two equally shaped ranges and ignores
+text. INDEX uses one-based row/column positions. MATCH requires an explicit zero
+match mode and a single row or column. VLOOKUP requires the fourth argument
+FALSE/zero; approximate modes return \texttt{\#N/A}. Missing exact matches return
+\texttt{\#N/A}; invalid positions return \texttt{\#REF!}.
+
+\textbf{Text and dates.} Text functions count Unicode code points; LEFT/RIGHT
+without a count return one character. MID uses a one-based start. SUBSTITUTE
+replaces all literal occurrences; its optional occurrence selector is outside
+this subset. TRIM collapses ordinary spaces. Dates use the Gregorian calendar,
+an epoch of 1899-12-30, and the supported interval 1900-01-01 through 9999-12-31.
+DATE requires valid year/month/day integers and rejects rollover dates and the
+fictitious 1900-02-29. YEAR/MONTH/DAY require integral serials. Format $>$ Date
+shows YYYY-MM-DD without changing the stored number. These explicit limits are
+narrower than Excel's coercion and rollover behavior. The epoch follows the
+\href{https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part4-formula.html}{OASIS OpenFormula date model}.
+
+\textbf{Interchange policy.} ODS export refuses workbooks with native objects or
+date formatting until those objects/styles have a tested ODS mapping. It does not
+silently discard them. CSV remains an explicit values-only export. Page setup,
+view preferences and application metadata are outside the declared ODS subset;
+unsupported workbook content is rejected and the original file is never replaced.
+See \code{lean_calc/phase-completion.txt} for the remaining acceptance gates.
+
+\subsection{Editing and rectangular selection}
+Click a cell and type to replace it. Double-click, click the active cell, or press
+F2 to edit its existing value with a caret. The formula bar and cell editor share
+one pending draft. Enter commits and moves down; Shift+Enter moves up. Tab and
+Shift+Tab commit and move forward/backward, including across row boundaries.
+Apply commits without moving. Escape cancels the draft. Arrows navigate cells
+when not editing and move the caret while editing.
+
+Use Shift-click, Shift-arrow keys, or drag from a newly clicked cell to extend a
+rectangular selection. The selected rectangle is shaded and its address appears
+at the top. A plain click or arrow returns to one cell. Typing starts a new edit
+in the active cell and clears the rectangular selection. The cell editor follows
+scrolling and hides when its cell is outside the viewport.
+
+\textbf{Pick a range while entering a formula.} In an empty result cell, type
+\code{=sum(}. Drag across a rectangle of numbers on the current sheet, release
+the mouse, type \code{)}, and press Return. For example, dragging A1 through B3
+inserts \code{A1:B3}, so the result cell receives \code{=sum(A1:B3)}. The referenced
+rectangle is highlighted while the draft stays in the original cell. Dragging
+changes only the draft; Return or Apply commits it, and Escape cancels it.
+
+This also works from the formula bar, after an operator or comma, and before an
+existing closing parenthesis. Selecting an existing reference inside the formula
+lets a drag replace that text. A single picked cell inserts just its address.
+Dragging in the opposite direction gives the same normalized rectangle. After
+release, continue typing to finish the expression or add another argument.
+
+\textbf{Copy and paste.} Cmd+C copies the selected rectangle. Select the top-left
+destination and press Cmd+V. A selection at the destination uses its top-left
+corner. A copy within this app carries the original coordinates, so relative
+references adjust. External tab-separated clipboard text is parsed as a table;
+formulas in it are used as supplied. Quoted fields preserve tabs, newlines, and
+quotes. Uneven rows and out-of-bounds pastes are rejected before any pasted data
+is written. A successful paste is one undo step.
+
+\textbf{Cut and paste.} Cmd+X prepares a move; source cells remain until Paste.
+The complete move is one undo step, including any references updated elsewhere.
+Changing workbook content after Cut invalidates that pending move; select and Cut
+again. Merely switching the active sheet does not invalidate it. Overlapping
+moves use the original cells. A move that would split a referenced range is
+rejected: copy instead, or move the entire referenced range.
+
+\textbf{Fill.} Select a rectangle and use Edit $>$ Fill Down (Cmd+D) to copy its
+first row downward, or Fill Right (Cmd+R) to copy its first column rightward.
+Formulas adjust just as on Copy. Edit $>$ Clear cells, Delete, or Backspace clears
+the rectangle. Each operation is undoable as a whole.
+
+\subsection{References, structural edits, and undo}
+Reference behavior was specified before implementation in
+\code{lean_calc/phase2-reference-rules.txt}.
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule\textbf{Reference} & \textbf{Copy behavior} & \textbf{Example: one row/right}\\\midrule
+\code{A1} & Row and column move & \code{B2}\\
+\code{$A$1} & Both stay fixed & \code{$A$1}\\
+\code{A$1} & Column moves & \code{B$1}\\
+\code{$A1} & Row moves & \code{$A2}\\
+\code{Other!A1} & Same sheet; both coordinates move & \code{Other!B2}\\
+\bottomrule
+\end{tabular}\end{center}
+Unqualified references use the formula's destination sheet after Copy. Explicit
+sheet qualifiers stay explicit. References shifted outside A1:Z100 become
+\texttt{\#REF!}. Rewriting may normalize capitalization, remove formula whitespace,
+and quote sheet names; quoted string contents are preserved.
+
+Cut moves cell identities: references to moved cells follow them, even if they
+have dollar anchors. A moved formula retains its references to cells outside the
+block; a cross-sheet move adds the original sheet qualifier when needed. The
+range-splitting restriction above prevents an ambiguous partial range move.
+
+The Sheet menu inserts or deletes one row/column at the selection's top/left
+edge. Every sheet's references follow the structural change, regardless of dollar
+anchors. Deleted single-cell targets become \texttt{\#REF!}. Ranges shrink on deletion,
+expand when insertion is inside the range, and become \texttt{\#REF!} if no cells
+remain. Insertion before the first range cell shifts the whole range. The grid
+size stays fixed: insertion is refused if it would discard nonempty edge cells;
+deletion adds an empty row or column at the far edge.
+
+Renaming a sheet rewrites qualified references throughout the workbook. Deleting
+a sheet invalidates references to it; at least one sheet must remain. Both can be
+undone. Cmd+Z and Shift+Cmd+Z undo/redo workbook changes across sheets and restore
+the relevant active sheet. Up to 100 snapshots are retained. Navigation alone is
+not an undo step. Editing after undo clears redo history.
+
+\subsection{Values and formulas}
+Cells hold text, decimal numbers, or formulas beginning with \code{=}. A leading
+apostrophe makes literal text: \code{'=1+2} displays \code{=1+2}. Cells have a
+4096-character limit and cannot contain NUL. Arithmetic uses exact rational
+numbers; \code{0.1+0.2} is exactly \code{0.3}. Terminating results with up to ten
+decimal places display as decimals; other results display as fractions.
+
+Arithmetic supports \code{+ - * /}, unary signs and parentheses. Comparisons
+\code{= <> < <= > >=} return 1 or 0; arithmetic has higher precedence. Equality
+can compare text; ordered comparisons require numeric values. TRUE and FALSE
+are 1 and 0. A blank reference is zero in arithmetic; text is a value error.
+
+\begin{center}\small
+\begin{tabular}{@{}P{0.25\linewidth}P{0.66\linewidth}@{}}
+\toprule\textbf{Function} & \textbf{Behavior}\\\midrule
+\code{SUM(...)} & Add scalar expressions and rectangular ranges.\\
+\code{MIN(...)} / \code{MAX(...)} & Smallest/largest numeric value; zero if none.\\
+\code{AVERAGE(...)} & Numeric mean; division error if no numeric values.\\
+\code{COUNT(...)} & Number of numeric values; blank/text references are skipped.\\
+\code{IF(test,yes,no)} & Exactly three arguments; numeric zero chooses no. Only the chosen branch is evaluated. Branches may return text.\\
+\bottomrule
+\end{tabular}\end{center}
+Aggregates skip blank/text cells and propagate formula errors. They accept multiple
+arguments, for example \code{=SUM(A1:B3,5,Other!C1)}. Range endpoints can be reversed;
+in \code{Other!A1:B3}, the second endpoint inherits Other. A range cannot span
+sheets. Example: \code{=IF(SUM(A1:A5)>100,"Over budget","OK")}. Double double-quotes
+inside a string to quote a double-quote. Unsupported functions produce a name error.
+
+\subsection{Errors and calculation limits}
+\begin{center}\small
+\begin{tabular}{@{}ll@{}}
+\toprule\textbf{Error} & \textbf{Meaning}\\\midrule
+\texttt{\#DIV/0!} & Division by zero or an average with no numeric values.\\
+\texttt{\#CYCLE!} & Circular reference, including across sheets.\\
+\texttt{\#VALUE!} & Text in numeric arithmetic or an unsupported range context.\\
+\texttt{\#REF!} & Missing sheet, deleted target, or out-of-grid reference.\\
+\texttt{\#NAME?} & Unsupported name or function.\\
+\texttt{\#PARSE!} & Invalid formula syntax.\\
+\texttt{\#LIMIT!} & Formula length, depth or work budget exceeded.\\
+\bottomrule
+\end{tabular}\end{center}
+Formulas have a 512-character limit, parser/evaluation depth budgets of 128, and
+20,000 evaluation steps per result. IF does not evaluate its unused branch, so an
+error or cycle there does not affect the result. Recalculation after edits remains
+synchronous; complex workbooks can take time to recalculate. Navigation reuses
+cached display values. Changes in another sheet invalidate dependent displayed
+results when that sheet is viewed. Named ranges participate in dependency tracking.
+Workbooks containing custom functions conservatively clear the result cache after
+an edit. Executable macros are not implemented; function packs contain expressions only.
+
+\subsection{CSV import and export}
+\textbf{Save As CSV.} Choose File $>$ Save As and enter a filename ending in
+\code{.csv}. LeanCalc writes UTF-8 comma-separated values, with CSV quoting,
+instead of the native workbook format. Both \code{.csv} and \code{.lcalc} are
+accepted by the save dialog. The \code{.CSV} extension works too.
+
+CSV contains only the active sheet's displayed values. Exporting leaves the
+native workbook path and unsaved-change indicator intact. Save to \code{.lcalc}
+to retain formulas and all sheets. If CSV is chosen while saving before closing,
+the export completes and the workbook stays open. File $>$ Export CSV remains
+available, including the semicolon option.
+
+The File menu offers separate comma and semicolon import/export commands. Files
+must be UTF-8; an optional UTF-8 BOM is accepted on import. Fields use double-quote
+escaping, doubled double-quotes, and may contain delimiters or CR/LF inside quotes.
+Import accepts CRLF, LF, or CR record endings. Export uses CRLF.
+
+Import validates the entire file, then asks to replace the active sheet. Other
+sheets and the native save path are preserved. Undo restores the previous sheet.
+Shorter rows are padded with empty cells. More rows than the active sheet capacity (100 or expanded to 1,000), more than 26 columns,
+malformed quotes, NUL, and oversized fields are rejected. Imported formula-looking
+text is stored literally, never executed; an internal leading apostrophe preserves
+that distinction. An already literal apostrophe is also preserved on export.
+
+Export writes \emph{displayed values}, not formulas, from the smallest A1-anchored
+rectangle containing nonempty raw cells. A blank sheet produces one empty field.
+It does not change the native save path or mark the workbook saved. Use native
+\code{.lcalc} to retain formulas and multiple sheets. A limited ODS adapter is available; XLSX is not yet supported.
+
+\subsection{Native files and migration}
+\code{LeanCalc-2} files store all sheet names, raw cell contents, and the active
+sheet as UTF-8 JSON. Existing \code{LeanCalc-1} files open as a workbook containing
+Sheet1. Formatting or expanding a sheet writes version 3. Workbook objects write version 4.
+This build reads versions 1--4; older builds cannot read version 4.
+Use Save As if a separate old-format original is needed. Undo history, pending
+clipboard moves, and the cell selection are session state.
+
+Save commits a pending draft and compares the file with the bytes last read or
+saved. Conflicts are reported instead of overwritten. Save As can preserve both
+versions. The C bridge writes a temporary file beside the target, synchronizes it,
+and atomically renames it. This is not a file lock; a concurrent writer can race
+the comparison and rename. Native Save resolves symlinks before replacement.
+
+\clearpage
+\subsection{Menus and shortcuts}
+\begingroup\small
+\begin{longtable}{@{}P{0.30\linewidth}P{0.64\linewidth}@{}}
+\toprule\textbf{Action} & \textbf{Behavior / shortcut}\\\midrule\endhead
+File: New / Open & New workbook / open .lcalc. Cmd+N / Cmd+O; offer to save changes.\\
+File: Save / Save As & Save workbook as .lcalc; .csv exports active sheet values. Cmd+S / Shift+Cmd+S.\\
+File: Import CSV & Replace active sheet after confirmation; choose comma or semicolon.\\
+File: Export CSV & Export active sheet's displayed values; choose comma or semicolon.\\
+File: Quit & Save/discard/cancel prompt. Cmd+Q.\\
+Edit: Undo / Redo & Workbook-wide history. Cmd+Z / Shift+Cmd+Z.\\
+Edit: Cut / Copy / Paste cells & Rectangular clipboard. Cmd+X / Cmd+C / Cmd+V.\\
+Edit: Clear cells & Clear the selection. Delete or Backspace when navigating.\\
+Edit: Fill Down / Right & Repeat first row/column with adjusted references. Cmd+D / Cmd+R.\\
+Sheet: Add / Rename / Delete & Manage named sheets; all undoable. The + button adds a sheet.\\
+Sheet: Insert/Delete row/column & One structural change at the selection's top/left edge.\\
+Insert & Names, charts, PNG images, pivot tables, custom functions and object management.\\
+Data & Validation, conditional formats, pivot refresh, function packs, find, sort and filter.\\
+Format & Numeric/date display, fonts, column widths and alignment.\\
+File: Print / ODS & Printable HTML; import/export the declared ODS subset.\\
+Help & Compact guide to operations and references.\\
+\bottomrule
+\end{longtable}\endgroup
+Command shortcuts also have Control aliases. Clipboard shortcuts act on selected
+text while editing in the formula bar or cell editor, and on cells while navigating.
+The Edit menu's cell clipboard commands always operate on cells. Shift-click and
+Shift-arrows extend the selection; Enter/Tab commit and move; Escape cancels; F2 edits.
+
+\subsection{Build and validation}
+The compatibility engine is in \code{LeanCalcCore.lean}; the new workbook engine
+is in \code{Phase2.lean}. Tests are in \code{Phase2Tests.lean}, and the desktop
+application and integration checks are in \code{LeanCalc.lean}. The builder compiles
+the Lean modules to C and links them with the Tcl/Tk, filesystem, ZIP and XML
+bridges. The installed macOS XML/archive libraries and zip utility handle ODS.
+It regenerates both PDFs, signs the app locally, and packages the ZIP.
+
+\begin{quote}\small\ttfamily
+python3 lean\_calc/build.py\\
+dist/LeanCalc.app/Contents/MacOS/LeanCalc --gui-self-test\\
+python3 lean\_calc/build\_document.py
+\end{quote}
+The toolchain is Lean 4.35.0-rc3, Apple command-line tools, Python 3.9+, Homebrew
+static GMP/libuv, Tcl/Tk 9.0.4, and LaTeX/latexmk. The supplied runtime path can be
+overridden. Keep generated C files unedited.
+
+\textbf{Status.} All 490 native/headless checks pass and the app signature verifies.
+The user accepted Phase 1's responsiveness. The Phase 2 desktop suite still aborts
+at macOS GUI initialization in this sandbox, so new controls, dialogs, visual
+selection, and Finder activation need desktop acceptance. Headless tests exercise
+real Lean handlers and Tcl translation, but substitute widget/dialog adapters.
+The navigation benchmark still performs zero grid-row writes for unchanged cells;
+it excludes painting. \code{--gui-render-benchmark} measures real Tk keyboard and
+painting work on a desktop and writes \code{dist/LeanCalc-render-benchmark.log}.
+
+\clearpage
+\section{Unit tests}
+There are \textbf{490 named native/headless checks}: the original 61 baseline
+checks, 17 editing-interaction checks, 12 display-cache checks, 87 Phase 2 engine
+checks, 23 Phase 2 command-handler checks, 25 formula-picking checks, 19 saving/tab
+checks, 82 math checks, 30 Phase 3 checks, 15 ODS checks, 8 Phase 3 interaction checks, 81 Phase 5 checks, and 13 Phase 5
+interaction checks, and 17 document-open checks. A named check can contain several
+assertions. One differential check compares the new engine with the original
+arithmetic engine across 308 inputs. These are finite tests, not formal proofs.
+
+The document builder verifies the baseline names against \code{tests.json} and
+regenerates the catalogues below from executable results. The separate desktop
+GUI suite is excluded from the passing count. Original checks retain their names;
+legacy single-sheet encoding tests cover the Phase 1 migration input format.
+Workbook-format and migration tests cover the new active format.
+
+\subsection{Original 61-check baseline}
+\begin{longtable}{@{}P{0.07\linewidth}P{0.87\linewidth}@{}}
+\toprule\textbf{No.} & \textbf{What the test checks}\\\midrule\endfirsthead
+\toprule\textbf{No.} & \textbf{What the test checks (continued)}\\\midrule\endhead
+% BEGIN TEST CATALOGUE
+01 & First cell address.\\
+02 & Last cell address.\\
+03 & Lowercase addresses.\\
+04 & Whitespace around addresses.\\
+05 & Reject row zero.\\
+06 & Reject row beyond sheet.\\
+07 & Reject column beyond sheet.\\
+08 & Reject missing row.\\
+09 & Address round-trip across all 2600 cells.\\
+10 & Empty sheet dimensions and contents.\\
+11 & Parse positive integer.\\
+12 & Parse negative decimal.\\
+13 & Parse leading decimal point.\\
+14 & Parse explicit plus.\\
+15 & Reject multiple decimal points.\\
+16 & Reject lone decimal point.\\
+17 & Exact decimal addition.\\
+18 & Display terminating decimal.\\
+19 & Display repeating result as fraction.\\
+20 & Preserve Unicode text.\\
+21 & Formula addition.\\
+22 & Formula subtraction.\\
+23 & Formula multiplication.\\
+24 & Formula division.\\
+25 & Multiplication precedence.\\
+26 & Parentheses precedence.\\
+27 & Left-associative subtraction.\\
+28 & Left-associative division.\\
+29 & Unary minus and plus.\\
+30 & Formula whitespace.\\
+31 & Reference another cell.\\
+32 & Recalculate changed dependency.\\
+33 & Blank references equal zero.\\
+34 & Text reference is an error.\\
+35 & Division by zero error.\\
+36 & Direct circular reference.\\
+37 & Indirect circular reference.\\
+38 & Out-of-range reference error.\\
+39 & Unknown function error.\\
+40 & Reject trailing expression tokens.\\
+41 & Reject unmatched parentheses.\\
+42 & Rectangular SUM.\\
+43 & Reversed SUM endpoints.\\
+44 & SUM skips text and blank cells.\\
+45 & SUM propagates formula errors.\\
+46 & Formula length limit.\\
+47 & Apostrophe forces literal text.\\
+48 & Editing affects only chosen cell.\\
+49 & Out-of-bounds edit is unchanged.\\
+50 & Undo restores previous sheet.\\
+51 & Redo restores undone edit.\\
+52 & New edit clears redo history.\\
+53 & Identical edit does not create undo history.\\
+54 & File round-trip preserves formulas and Unicode.\\
+55 & Reject malformed file.\\
+56 & Reject unsupported file version.\\
+57 & Reject incorrect sheet dimensions.\\
+58 & Reject oversized or NUL-containing cells.\\
+59 & Native main thread and noninteractive startup.\\
+60 & Tcl bridge preserves text without evaluation.\\
+61 & Atomic save round-trip and conflict protection.\\
+% END TEST CATALOGUE
+\bottomrule\end{longtable}
+
+\subsection{Existing interaction and cache checks}
+The 17 interaction checks exercise click/keyboard selection, draft editing,
+commit/cancel, undo/redo, formula source editing, bounds, Unicode, shortcut
+filtering, validation and saving a pending draft. The 12 cache checks cover initial
+painting requests, unchanged navigation, changed rows, dependent recalculation,
+formula selection, undo/redo, equivalent formulas, clearing, errors, file loading,
+and New. They continue to pass with the workbook model.
+
+\subsection{Phase 2 engine and integration checks}
+Entries 1--87 cover the engine; entries 88--110 exercise real application commands
+with headless widget, clipboard, and dialog adapters.
+\begin{longtable}{@{}P{0.07\linewidth}P{0.87\linewidth}@{}}
+\toprule\textbf{No.} & \textbf{What the test checks}\\\midrule\endfirsthead
+\toprule\textbf{No.} & \textbf{What the test checks (continued)}\\\midrule\endhead
+% BEGIN PHASE2 CATALOGUE
+01 & Phase 2 arithmetic precedence and exact decimals.\\
+02 & Unary signs and subtraction remain compatible.\\
+03 & All comparison operators.\\
+04 & Comparison precedence follows arithmetic.\\
+05 & IF evaluates only the chosen branch.\\
+06 & IF returns text and accepts nested conditions.\\
+07 & Quoted strings preserve punctuation and escaped quotes.\\
+08 & IF rejects missing or extra arguments.\\
+09 & MIN MAX AVERAGE COUNT and variadic SUM.\\
+10 & Empty aggregates have defined results.\\
+11 & Aggregate errors propagate.\\
+12 & Unknown functions and malformed argument lists fail.\\
+13 & Range functions skip blank and literal text cells.\\
+14 & Cross-sheet formulas calculate.\\
+15 & Quoted sheet names and absolute references calculate.\\
+16 & Range endpoints inherit the first sheet qualifier.\\
+17 & Sheet and cell lookup is case-insensitive.\\
+18 & Unknown sheets report REF.\\
+19 & Cross-sheet cycles are detected.\\
+20 & Unchosen IF branches do not cause cross-sheet cycles.\\
+21 & Formula length budget remains enforced.\\
+22 & Relative absolute and mixed copy adjustments.\\
+23 & Copy adjusts qualified references.\\
+24 & Copy preserves formula string literals.\\
+25 & Out-of-bounds relative copies become REF.\\
+26 & Range copies preserve endpoint anchors.\\
+27 & Adding a sheet activates it.\\
+28 & Duplicate names are rejected case-insensitively.\\
+29 & Invalid sheet names are rejected.\\
+30 & Quoted sheet names escape apostrophes.\\
+31 & Renaming updates references in every sheet.\\
+32 & Renaming to another sheet name is rejected.\\
+33 & Deleting a sheet invalidates its references.\\
+34 & Last sheet cannot be deleted.\\
+35 & Undo crosses sheets and restores active sheet.\\
+36 & Redo restores workbook operations.\\
+37 & Editing after undo clears workbook redo.\\
+38 & Rectangular paste fills all cells.\\
+39 & Rectangle copy adjusts relative formulas.\\
+40 & Paste rejects overflow and ragged tables.\\
+41 & Paste is one undo step.\\
+42 & Fill Down copies the first row and adjusts mixed references.\\
+43 & Fill Right adjusts columns and preserves absolute rows.\\
+44 & Clear rectangle preserves outside cells.\\
+45 & Overlapping Cut uses the original rectangle.\\
+46 & Cut across sheets updates outside and anchored references.\\
+47 & Moved formula retains references outside its block.\\
+48 & Cut move is one undo operation.\\
+49 & Insert row shifts data without truncation.\\
+50 & Insert row expands a spanning range.\\
+51 & Structural changes shift absolute cross-sheet references.\\
+52 & Delete row shrinks ranges and shifts data.\\
+53 & Deleted single-cell reference becomes REF.\\
+54 & Deleting a range boundary retains surviving cells.\\
+55 & Reversed ranges shrink correctly.\\
+56 & Deleting a whole referenced range becomes REF.\\
+57 & Insert column shifts formulas and their references.\\
+58 & Delete column reverses a prior empty insertion.\\
+59 & Insertion cannot discard nonempty edge cells.\\
+60 & Structural operation is one undo step.\\
+61 & Phase 1 files migrate without losing cells.\\
+62 & Phase 2 round-trip preserves sheets and active sheet.\\
+63 & Version and active-sheet validation.\\
+64 & Workbook format rejects duplicate names and invalid shapes.\\
+65 & CSV handles BOM quoted delimiters doubled quotes and newlines.\\
+66 & CSV round-trip preserves embedded CR LF quotes and Unicode.\\
+67 & Semicolon delimiter is explicit.\\
+68 & CSV accepts CR LF and CRLF record endings.\\
+69 & CSV preserves trailing empty fields.\\
+70 & CSV rejects malformed quoting.\\
+71 & CSV rejects too many rows or columns.\\
+72 & CSV rejects NUL and oversized fields.\\
+73 & CSV import pads shorter rows and keeps formulas literal.\\
+74 & CSV import preserves other sheets.\\
+75 & CSV import is one undo step.\\
+76 & CSV export writes displayed values and CRLF.\\
+77 & Blank sheet CSV exports one empty cell.\\
+78 & CSV literal apostrophes survive import and export.\\
+79 & Clipboard TSV round-trip preserves tabs newlines and quotes.\\
+80 & COUNT ignores a blank scalar reference.\\
+81 & Quoted sheet names can contain exclamation marks.\\
+82 & Cut refuses to split a referenced range.\\
+83 & Deleting the first range row preserves a surviving formula.\\
+84 & Deleting the last range row preserves a surviving formula.\\
+85 & Workbook enforces its 32-sheet limit.\\
+86 & Workbook undo history remains bounded.\\
+87 & Phase 2 agrees with the Phase 1 arithmetic oracle across 308 cases.\\
+88 & Shift navigation selects a rectangle.\\
+89 & Copy does not alter workbook or undo history.\\
+90 & Clipboard paste shifts relative formulas in the real handler.\\
+91 & UI undo reverses rectangular paste as one action.\\
+92 & UI redo restores the pasted rectangle.\\
+93 & Fill Down handler updates the whole selected rectangle.\\
+94 & New sheet and cross-sheet formula are connected to the UI.\\
+95 & Sheet rename updates live cross-sheet formulas.\\
+96 & Cut leaves source cells intact until Paste.\\
+97 & Cut across sheets moves data and follows incoming references.\\
+98 & UI undo restores a cut across sheets.\\
+99 & Stale Cut is rejected without losing data.\\
+100 & External TSV clipboard pastes as a rectangle.\\
+101 & Row insertion handler shifts pasted data.\\
+102 & Row deletion handler removes the inserted row.\\
+103 & Delete sheet command remains undoable.\\
+104 & Undo restores a deleted sheet and activates it.\\
+105 & Native save and load preserve every sheet and the active tab.\\
+106 & Workbook save still detects external file changes.\\
+107 & CSV import handler replaces only the active sheet.\\
+108 & CSV export writes display text without changing the native path.\\
+109 & Undo reverses CSV import in one step.\\
+110 & Cached results refresh after editing a referenced sheet.\\
+% END PHASE2 CATALOGUE
+\bottomrule\end{longtable}
+
+\subsection{Formula range-picking checks}
+These checks exercise the pointer handlers and draft editing through headless
+widget adapters, including no premature commit and no grid-value rewrites.
+The desktop suite separately exercises real pointer and key events.
+\begin{longtable}{@{}P{0.07\linewidth}P{0.87\linewidth}@{}}
+\toprule\textbf{No.} & \textbf{What the test checks}\\\midrule\endfirsthead
+\toprule\textbf{No.} & \textbf{What the test checks (continued)}\\\midrule\endhead
+% BEGIN PICKING CATALOGUE
+01 & Picking starts without committing or moving the formula cell.\\
+02 & Dragging replaces the temporary reference with a rectangle.\\
+03 & Repeated drag motion never duplicates reference text.\\
+04 & Mouse release leaves the draft in its original editor.\\
+05 & Formula picking does not rewrite grid values.\\
+06 & Closing parenthesis and Return calculate the picked SUM.\\
+07 & Committing clears reference highlights and picking state.\\
+08 & Undo reverses the complete picked formula in one step.\\
+09 & Redo restores the picked formula.\\
+10 & Reverse-direction dragging produces a normalized range.\\
+11 & Picking again replaces the previous range until typing resumes.\\
+12 & Escape cancels picking without changing committed content.\\
+13 & Picking at the caret preserves the existing formula suffix.\\
+14 & Ordinary clicking after a completed formula still commits and navigates.\\
+15 & Picking replaces a selected reference inside an existing formula.\\
+16 & Typing a comma permits picking another function argument.\\
+17 & Formula-bar picking keeps focus and synchronizes both editors.\\
+18 & Formula-bar picked ranges use the normal commit path.\\
+19 & A single picked cell inserts one address without a colon.\\
+20 & Picking after an arithmetic operator appends a new reference.\\
+21 & Dragging outside the grid retains the last valid reference.\\
+22 & Quoted strings and quoted sheet names are not insertion slots.\\
+23 & Unicode and escaped quotes preserve caret insertion boundaries.\\
+24 & Non-formula editing still commits normally on a cell click.\\
+25 & Oversized range insertion preserves the draft and original cell.\\
+% END PICKING CATALOGUE
+\bottomrule\end{longtable}
+
+\subsection{Saving and worksheet-tab checks}
+The saving checks inspect files written by the real handlers. Tab checks run
+the tab-control script with headless widget adapters; geometry and appearance
+also have desktop checks, excluded from the passing count.
+\begin{longtable}{@{}P{0.07\linewidth}P{0.87\linewidth}@{}}
+\toprule\textbf{No.} & \textbf{What the test checks}\\\midrule\endfirsthead
+\toprule\textbf{No.} & \textbf{What the test checks (continued)}\\\midrule\endhead
+% BEGIN SAVE TABS CATALOGUE
+01 & Save As with a CSV suffix writes quoted UTF-8 CSV values.\\
+02 & CSV Save As is not mistaken for saving the entire workbook.\\
+03 & Save dialog permits both native and CSV filename extensions.\\
+04 & Native Save As still persists all sheets and marks the workbook saved.\\
+05 & Uppercase CSV extension also exports and commits the pending draft.\\
+06 & CSV export preserves the native path and conflict baseline.\\
+07 & CSV export preserves formulas, other sheets, and unsaved changes.\\
+08 & Save after CSV export still updates the native workbook.\\
+09 & Cancelling Save As leaves existing files unchanged.\\
+10 & CSV during save-before-close keeps the unsaved workbook open.\\
+11 & CSV Save As exports the active sheet rather than the first sheet.\\
+12 & A workbook renders one visible named sheet tab.\\
+13 & Adding a sheet creates its named tab and marks it active.\\
+14 & Clicking a tab commits a pending draft and switches sheets.\\
+15 & Switching tabs removes the old active underline.\\
+16 & Cell navigation leaves unchanged sheet tabs untouched.\\
+17 & Renaming a sheet updates its tab with literal Unicode and punctuation.\\
+18 & Deleting a sheet removes its tab and selects the remaining sheet.\\
+19 & Undo restores deleted sheet tabs and the active indicator.\\
+% END SAVE TABS CATALOGUE
+\bottomrule\end{longtable}
+
+\subsection{Math, Phase 3, and ODS checks}
+\begin{longtable}{@{}P{0.07\linewidth}P{0.87\linewidth}@{}}
+\toprule\textbf{No.} & \textbf{What the test checks}\\\midrule\endfirsthead
+\toprule\textbf{No.} & \textbf{What the test checks (continued)}\\\midrule\endhead
+% BEGIN ADVANCED CATALOGUE
+01 & Math exact: ABS(-3.25).\\
+02 & Math exact: SIGN(-2).\\
+03 & Math exact: INT(-2.3).\\
+04 & Math exact: TRUNC(-2.9).\\
+05 & Math exact: ROUND(2.675,2).\\
+06 & Math exact: ROUND(-1.5,0).\\
+07 & Math exact: ROUND(1234,-2).\\
+08 & Math exact: ROUNDUP(-1.21,1).\\
+09 & Math exact: ROUNDDOWN(-1.29,1).\\
+10 & Math exact: TRUNC(12.345,2).\\
+11 & Math exact: MOD(-3,2).\\
+12 & Math exact: MOD(3,-2).\\
+13 & Math exact: QUOTIENT(-7,2).\\
+14 & Math exact: POWER(2,10).\\
+15 & Math exact: 2\textasciicircum{}-3.\\
+16 & Math exact: 2\textasciicircum{}3\textasciicircum{}2.\\
+17 & Math exact: -2\textasciicircum{}2.\\
+18 & Math exact: 50\%*8.\\
+19 & Math exact: FACT(5).\\
+20 & Math exact: COMBIN(6,2).\\
+21 & Math exact: GCD(12,18,24).\\
+22 & Math exact: LCM(4,6).\\
+23 & Math exact: FLOOR(7.8,2).\\
+24 & Math exact: CEILING(7.1,2).\\
+25 & Math exact: EVEN(-3).\\
+26 & Math exact: ODD(0).\\
+27 & Math exact: PRODUCT(2,3,4).\\
+28 & Math exact: SUMSQ(2,3).\\
+29 & Math exact: MEDIAN(5,1,3).\\
+30 & Math exact: MEDIAN(4,1,2,3).\\
+31 & Math exact: VAR.S(1,2,3).\\
+32 & Math exact: VAR.P(1,2,3).\\
+33 & Math exact: STDEV.S(1,2,3).\\
+34 & Math exact: SAVERAGE(2,4).\\
+35 & Math exact: AND(1,2,0).\\
+36 & Math exact: OR(0,2).\\
+37 & Math exact: NOT(0).\\
+38 & Math exact: IFERROR(1/0,7).\\
+39 & Math exact: IFERROR(5,1/0).\\
+40 & Math exact: 1e-3+2E+2.\\
+41 & Math approximate: SIN(PI()/2).\\
+42 & Math approximate: COS(0).\\
+43 & Math approximate: TAN(0).\\
+44 & Math approximate: ASIN(0).\\
+45 & Math approximate: ACOS(1).\\
+46 & Math approximate: ATAN(0).\\
+47 & Math approximate: ATAN2(1,0).\\
+48 & Math approximate: SINH(0).\\
+49 & Math approximate: COSH(0).\\
+50 & Math approximate: TANH(0).\\
+51 & Math approximate: ASINH(0).\\
+52 & Math approximate: ACOSH(1).\\
+53 & Math approximate: ATANH(0).\\
+54 & Math approximate: SQRT(81).\\
+55 & Math approximate: POWER(9,0.5).\\
+56 & Math approximate: EXP(0).\\
+57 & Math approximate: LN(1).\\
+58 & Math approximate: LOG(100).\\
+59 & Math approximate: LOG(8,2).\\
+60 & Math approximate: LOG10(1000).\\
+61 & Math approximate: LOG2(8).\\
+62 & Math approximate: DEGREES(PI()).\\
+63 & Math approximate: RADIANS(180)/PI().\\
+64 & Math approximate: SIN(1)\textasciicircum{}2+COS(1)\textasciicircum{}2.\\
+65 & Math error: SQRT(-1).\\
+66 & Math error: LN(0).\\
+67 & Math error: LOG(3,1).\\
+68 & Math error: ASIN(2).\\
+69 & Math error: POWER(-2,0.5).\\
+70 & Math error: EXP(10000).\\
+71 & Math error: MOD(1,0).\\
+72 & Math error: POWER(0,-1).\\
+73 & Math error: VAR.S(1).\\
+74 & Math error: SIN().\\
+75 & Math error: ABS(1,2).\\
+76 & Math error: PI(1).\\
+77 & Math error: ABS("text").\\
+78 & Math error: FACT(-1).\\
+79 & Math error: POWER(2,1025).\\
+80 & New aggregates accept ranges and ignore referenced text.\\
+81 & Scalar math rejects a rectangle instead of silently flattening it.\\
+82 & Scientific literal signs survive copy rewriting.\\
+83 & Initial incremental display agrees with full evaluation.\\
+84 & Unchanged workbook reuses every displayed result.\\
+85 & An edit recalculates only its transitive dependents.\\
+86 & Replacing a formula removes obsolete dependencies.\\
+87 & Dependency cycles terminate and display cycle errors.\\
+88 & Undoing a cycle invalidates all affected cached errors.\\
+89 & Cross-sheet edits invalidate cached dependents on another sheet.\\
+90 & IF branch dependencies remain safe when the condition changes.\\
+91 & Forty edit sequences match the full-calculation oracle.\\
+92 & Sorting is numeric and stable for equal keys.\\
+93 & Sorting remains a single undoable edit.\\
+94 & Descending sort preserves equal-key row order.\\
+95 & Search wraps and is case insensitive.\\
+96 & Filtering matches display text without changing the workbook.\\
+97 & Currency display does not change the stored value.\\
+98 & Percent display multiplies only the displayed value.\\
+99 & Fixed formatting rounds negative ties away from zero.\\
+100 & Cell formats and column widths survive native save and reopen.\\
+101 & Formatting is undoable without altering cell contents.\\
+102 & Printable HTML escapes workbook text and includes print layout.\\
+103 & Expanded sheets calculate references in row 1000.\\
+104 & Expanded sparse native files round-trip without empty-cell bloat.\\
+105 & Incremental invalidation reaches expanded-sheet references.\\
+106 & CSV export includes populated rows beyond row 100.\\
+107 & Sort carries formatting with the moved row.\\
+108 & Row insertion shifts cell formatting with contents.\\
+109 & Copying a rectangle carries cell formatting in one undo step.\\
+110 & Font choices survive native serialization.\\
+111 & Fill copies formats with values in one undo step.\\
+112 & Existing Phase 2 example opens without new style fields.\\
+113 & ODS values and formula results round-trip across sheets.\\
+114 & ODS text preserves Unicode XML punctuation and literal leading zeroes.\\
+115 & ODS basic number formats and bold style round-trip.\\
+116 & ODS column widths and alignment round-trip.\\
+117 & OpenFormula conversion preserves string delimiters.\\
+118 & OpenFormula conversion preserves anchored quoted references.\\
+119 & ODS XML parsing resolves namespace URIs rather than literal prefixes.\\
+120 & ODS rejects DTD and external entities.\\
+121 & ODS rejects malformed XML.\\
+122 & ODS rejects merged cells without modifying a workbook.\\
+123 & ODS rejects unsupported formulas rather than importing wrong results.\\
+124 & ODS package has the spreadsheet MIME type.\\
+125 & Packaged ODS opens through the actual ZIP and XML reader.\\
+126 & Apache OpenOffice corpus rejects unsupported content explicitly: sampledata.ods.\\
+127 & Apache OpenOffice corpus rejects unsupported content explicitly: SubtotalsSampleFile.ods.\\
+128 & Format command updates display without changing the formula source.\\
+129 & Font command persists a cell font choice.\\
+130 & Sort command moves selected rows and their formats.\\
+131 & Undo command restores the original row order.\\
+132 & Find command selects matching cell text.\\
+133 & Filter command records a temporary view without changing contents.\\
+134 & Expanded-grid commands edit and calculate cell Z1000.\\
+135 & Expanded-grid navigation stops at the actual sheet boundary.\\
+136 & =COUNTIF(A1:A3,">15") returns 2.\\
+137 & =SUMIF(B1:B3,"apple",A1:A3) returns 40.\\
+138 & =AVERAGEIF(A1:A3,">10") returns 25.\\
+139 & =SUMPRODUCT(A1:A3,A1:A3) returns 1400.\\
+140 & =SUMPRODUCT(A1:A3,A1:A2) returns \#VALUE!.\\
+141 & =INDEX(A1:B3,2,2) returns pear.\\
+142 & =INDEX(A1:B3,0,1) returns \#REF!.\\
+143 & =MATCH("PEAR",B1:B3,0) returns 2.\\
+144 & =MATCH(999,A1:A3,0) returns \#N/A.\\
+145 & =MATCH(10,A1:A3,1) returns \#N/A.\\
+146 & =VLOOKUP(20,A1:B3,2,FALSE) returns pear.\\
+147 & =VLOOKUP(20,A1:B3,3,FALSE) returns \#REF!.\\
+148 & =LEN("$\lambda$x") returns 2.\\
+149 & =LEFT("abcd",2) returns ab.\\
+150 & =RIGHT("abcd",2) returns cd.\\
+151 & =MID("abcd",2,2) returns bc.\\
+152 & =LEFT("abcd",-1) returns \#VALUE!.\\
+153 & =UPPER("apple") returns APPLE.\\
+154 & =LOWER("PEAR") returns pear.\\
+155 & =TRIM("  one   two  ") returns one two.\\
+156 & =CONCATENATE("Total ",A1) returns Total 10.\\
+157 & =SUBSTITUTE("one two one","one","1") returns 1 two 1.\\
+158 & =DATE(1900,1,1) returns 2.\\
+159 & =DATE(1900,2,29) returns \#NUM!.\\
+160 & =YEAR(DATE(2024,2,29)) returns 2024.\\
+161 & =MONTH(DATE(2024,2,29)) returns 2.\\
+162 & =DAY(DATE(2024,2,29)) returns 29.\\
+163 & =YEAR(DATE(9999,12,31)) returns 9999.\\
+164 & =DAY(60) returns 28.\\
+165 & =YEAR(1) returns \#NUM!.\\
+166 & =SUMIF(A1:A3,">99") returns 0.\\
+167 & =AVERAGEIF(A1:A3,">99") returns \#DIV/0!.\\
+168 & =NO\_SUCH\_FUNCTION(1) returns \#NAME?.\\
+169 & =SUM(revenue) returns 60.\\
+170 & =Revenue+1 returns \#VALUE!.\\
+171 & =Rate*2 returns 20.\\
+172 & Named ranges reject case-insensitive duplicates.\\
+173 & Named ranges reject built-in names.\\
+174 & Named-range dependencies invalidate cached sums.\\
+175 & =SUM(Revenue) returns 60.\\
+176 & Named ranges track inserted rows.\\
+177 & =SUM(Revenue) returns 60.\\
+178 & =DOUBLE(SUM(Revenue)) returns 120.\\
+179 & =DOUBLE(1,2) returns \#VALUE!.\\
+180 & =RECUR(1) returns \#LIMIT!.\\
+181 & =DOUBLE(9) returns 18.\\
+182 & Function packs reject unrelated objects.\\
+183 & Validation accepts in-range values.\\
+184 & Validation rejects out-of-range values.\\
+185 & Validation rejects bad pasted data atomically.\\
+186 & Validation permits blank cells.\\
+187 & Whole-number validation rejects fractions.\\
+188 & List validation accepts choices and rejects other text.\\
+189 & Conditional colors reflect evaluated numeric values.\\
+190 & Conditional formats appear in printable output.\\
+191 & Charts read a live source series.\\
+192 & Chart export escapes labels and creates SVG.\\
+193 & Charts update after source edits.\\
+194 & Native version 4 preserves all workbook objects exactly.\\
+195 & Removing an object is undoable.\\
+196 & ODS refuses to silently drop native workbook objects.\\
+197 & Pivot tables group repeated labels and sum values.\\
+198 & Pivot creation is one undo transaction.\\
+199 & Pivot refresh reads changed source values.\\
+200 & Pivot averages retain exact numeric results.\\
+201 & Pivot definitions survive native reopen and refresh.\\
+202 & A sparse working sheet stores only populated cells.\\
+203 & Clearing a sparse cell releases its entry.\\
+204 & The display cache stores no blank-cell results.\\
+205 & =SUM(Revenue) returns 60.\\
+206 & Cut moves complete named ranges with their cells.\\
+207 & Cut rejects partial named-range moves.\\
+208 & Pivot sources follow sheet renames.\\
+209 & Pivot sources follow inserted source columns.\\
+210 & Deleting a pivot key column is rejected explicitly.\\
+211 & Custom functions recalculate after named inputs change.\\
+212 & CSV replacement obeys validation rules.\\
+213 & Date formatting preserves serial values and displays ISO dates.\\
+214 & Date formatting survives native reopen.\\
+215 & Thirty-two large sparse sheets retain only thirty-two populated entries.\\
+216 & Line charts render a marker for a single data point.\\
+217 & Named-range menu saves the selected rectangle.\\
+218 & Custom-function menu defines a callable function.\\
+219 & Rejected cell validation preserves the workbook and draft.\\
+220 & Conditional-format menu paints matching cells.\\
+221 & Chart menu stores a source range and renders through canvas commands.\\
+222 & Undo removes a newly inserted chart.\\
+223 & Object removal uses one reversible workbook edit.\\
+224 & Function-pack menus round-trip declarative definitions.\\
+225 & PNG preflight accepts a small valid header.\\
+226 & PNG preflight rejects non-image input.\\
+227 & PNG preflight rejects excessive decoded dimensions.\\
+228 & Pivot menu creates and activates a summary sheet.\\
+229 & An unchanged pivot refresh does not add undo history.\\
+230 & Finder open requests wait until the interface is ready.\\
+231 & Queued Finder requests open a native workbook after startup.\\
+232 & Dropped paths preserve Unicode spaces and Tcl metacharacters.\\
+233 & Cancel keeps pending edits when another file is dropped.\\
+234 & Cancelled drops do not overwrite the original file.\\
+235 & Discard opens a file dropped onto a running app.\\
+236 & Invalid dropped workbooks leave the current workbook intact.\\
+237 & Missing dropped files leave the current workbook intact.\\
+238 & Multiple-file drops are rejected without silently replacing workbooks.\\
+239 & Unsupported file types receive a clear rejection.\\
+240 & Dropped CSV files import as new unsaved workbooks.\\
+241 & Dropped CSV formula-looking fields remain literal text.\\
+242 & Cancelling Save As cancels the document switch.\\
+243 & Dropped ODS files import without becoming the native Save target.\\
+244 & Document events cannot reenter an in-progress open dialog.\\
+245 & Deferred document events resume after the current operation.\\
+246 & Save-before-open persists edits before installing the dropped workbook.\\
+% END ADVANCED CATALOGUE
+\bottomrule\end{longtable}
+
+\clearpage
+\section{Formal verification}
+\clearpage
+\section{Staged road map}
+Each phase depends on the preceding phase and should be completed and validated
+before the next begins. Phase 1 establishes a deliberately narrow spreadsheet;
+OpenOffice feature parity is a long-term objective. Estimates and completion dates
+will depend on compatibility choices and measured implementation work.
+
+\subsection*{Phase 1: minimal single-sheet spreadsheet}
+\textbf{Scope.} Text and exact numbers; direct in-cell editing; A1 references; arithmetic and
+SUM; cycle/error detection; undo/redo; single-cell clipboard operations; native
+open/save; basic menus and shortcuts; Lean-to-C native build; this manual and the
+61-test baseline. No images, charts, macros, formatting system, or office-file
+compatibility.
+
+\textbf{Current outcome.} Implemented and compiled for Apple-silicon macOS; 61
+native tests pass. A separate GUI smoke test and launch diagnostics are supplied.
+The user confirmed responsive navigation after the 0.1.4 rendering fix.
+That implementation is retained in Phase 2.
+
+\textbf{Exit gate.} Validate normal interactive startup, cell editing, navigation,
+recalculation, clipboard, undo/redo, save/reopen, conflict reporting, and cancellation
+of unsaved-change prompts in a logged-in desktop session. Retain a reproducible
+native build and an up-to-date PDF. Do not mark this gate complete on native unit
+tests alone.
+
+\subsection*{Phase 2: everyday workbook operations}
+\textbf{Scope.} Multiple named sheets; cross-sheet references; relative, absolute,
+and mixed references; rectangular selection/copy/paste; fill; row/column insertion
+and deletion; CSV import/export with explicit delimiter and encoding rules; more
+functions such as MIN, MAX, AVERAGE, COUNT and IF.
+
+\textbf{Current outcome.} Implemented in 0.5.1 with the rules specified before
+implementation. The new format, migration, and engine/handler checks pass.
+Phase 2 desktop acceptance remains pending because this sandbox cannot start Tk.
+
+\textbf{Exit gate.} Specify reference adjustments before implementation; regression
+tests must cover structural edits, quoted CSV fields, cross-sheet cycles and undo
+across sheets. Version the native format and test migration from Phase 1 files.
+
+\subsection*{Phase 3: usable scale and presentation}
+\textbf{Scope.} Dependency tracking and incremental recalculation; larger sparse
+sheets; responsive rendering; search, sort and filtering; column widths, fonts,
+alignment, numeric display formats and print layout. Separate stored values from
+display formatting and agree on decimal/date/rounding semantics before expanding
+the numeric model.
+
+\textbf{Current outcome.} Implemented to the bounded 1,000-row scope in 0.5.1,
+with sparse working storage and sparse display caches, incremental invalidation,
+search/sort/filter, fonts/formats, explicit Gregorian date semantics, and printable
+HTML. The named performance fixture meets its time and memory budgets; desktop
+painting and print-dialog acceptance remain pending.
+
+\textbf{Exit gate.} Publish measured memory and recalculation budgets using named
+fixtures; test edits against a full-recalculation oracle; verify sort stability,
+undo, error propagation and print output. Keep calculations independent of the UI.
+
+\clearpage
+\subsection*{Phase 4: OpenDocument interoperability}
+\textbf{Scope.} Read and write a declared subset of ODS/OpenFormula, starting with
+values, formulas and basic styles. Add explicit diagnostics for unsupported
+features and a policy for preserving them. Treat XLSX as a separate later adapter,
+not an automatic consequence of ODS support.
+
+\textbf{Current outcome.} Initial ODS subset implemented and generated round trips
+tested in 0.5.1. A pinned Apache OpenOffice corpus verifies explicit rejection
+of unsupported validation and styling. The feature matrix and source hashes are
+recorded under \code{lean_calc/fixtures/ods}. Live OpenOffice comparison is blocked
+by this session: LaunchServices is unavailable and mounting the official installer
+returns ``Device not configured. This exit gate is not complete.
+
+\textbf{Exit gate.} Use a versioned corpus of real and generated workbooks; compare
+results and round trips with Apache OpenOffice Calc. Publish the supported feature
+matrix and distinguish exact round trips from intentional conversions. Never
+silently drop unsupported content when saving an imported workbook.
+
+\subsection*{Phase 5: advanced Calc capabilities}
+\textbf{Scope.} Add advanced functions, named ranges, validation, conditional
+formatting, charts, images, pivot tables, and extensibility in separately testable
+increments. Prioritize actual workbook needs. Consider macros only after defining
+a clear execution and permission model.
+
+\textbf{Current outcome.} Advanced functions, names, validation, conditional
+formatting, charts, PNG images, pivots and declarative function packs have models,
+native persistence, menus, fixtures and regression tests. Desktop appearance and
+interaction acceptance are still blocked. Executable macros are deferred until
+an execution/permission model is explicitly designed.
+
+\textbf{Exit gate.} Each feature needs a data model, compatibility fixtures,
+regression coverage, UI acceptance and updated documentation. Maintain a clear
+boundary between the calculation engine and optional presentation features.
+
+\subsection*{Longer-term continuation: other OpenOffice applications}
+After the spreadsheet has reached an agreed usable scope, plan separate phases
+for a Writer-like document editor and then presentation/drawing tools. Reuse the
+Lean build, file handling, UI infrastructure and testing approach where practical.
+The current release implements bounded Phase 3 and Phase 5 features plus an ODS subset; it does not port
+OpenOffice's existing codebase or replace the entire suite.
+
+\subsection*{Documentation and acceptance at every phase}
+Compile \code{LeanCalc.tex} to \code{LeanCalc.pdf} on every LeanCalc work turn.
+Keep menus and shortcuts synchronized with implementation. Preserve the original
+61 test identifiers and append new regression tests as features grow. Keep the
+formal-verification section empty until a later explicit instruction opens that
+work; no proof search or ranking is undertaken in this version.
+\end{document}

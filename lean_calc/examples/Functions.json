@@ -1,0 +1,8 @@
+{"functions":
+ [{"title": "DOUBLE",
+   "options": ["X"],
+   "last": 0,
+   "kind": "function",
+   "first": 0,
+   "data": "X*2"}],
+ "format": "LeanCalc-functions-1"}

@@ -1,0 +1,58 @@
+LeanCalc next-stage rules, 18 November 2026
+
+Existing decimal arithmetic remains exact rational. New trig, roots, logs and
+noninteger powers use binary64 math, rounded to 15 significant decimal digits
+before re-entering rational arithmetic. Angles are radians. RADIANS/DEGREES
+convert explicitly. Domain/overflow errors are #NUM!, zero divisors #DIV/0!,
+wrong arity or text passed to scalar math #VALUE!. ROUND halves away from zero;
+INT floors; TRUNC truncates toward zero; MOD follows the divisor's sign.
+Power follows Excel's left associativity and unary-negative precedence.
+Percentage is postfix division by 100. Scientific decimal literals are exact.
+SAVERAGE is a convenience alias for AVERAGE. No claim of complete Excel parity.
+
+Dependency tracking conservatively includes all references, including unchosen
+IF branches. Changed cells and transitive dependents invalidate cached results;
+sheet name/count changes reset the graph. Evaluation retains cycle/error limits.
+A full calculation remains the oracle used by tests.
+
+Sort only reorders the selected rectangle, using its active column as the key.
+It has no automatic header inference: select data rows, excluding headers.
+Numeric keys precede text/error keys; empty cells are last in either direction;
+equal keys retain original order. Moved formulas shift relative row references.
+References from outside the selection continue to refer to their coordinates.
+Sorting is one undo step. Filtering is a temporary view: it does not change or
+save cell contents. Search is case-insensitive and wraps within the active sheet.
+Printable HTML contains displayed values, escapes all workbook text, and can be
+printed or saved as PDF by the browser. It contains no scripts or active content.
+
+Scale and storage: default 100 rows; Sheet > Expand to 1,000 rows increases the
+active sheet to 26,000 cells. Up to 32 sheets. LeanCalc-3 serializes only nonempty
+cells plus explicit styles/columns. Working sheets are bounded dense arrays, not
+an unbounded sparse grid. Legacy LeanCalc-1 and LeanCalc-2 files remain readable;
+plain 100-row unstyled books can still use LeanCalc-2. Formatted/expanded books
+use LeanCalc-3 and must not be opened in an older app that cannot read version 3.
+Native cell contents, formats, fonts and explicit column settings are undoable.
+Copy/cut/sort/fill/structural edits carry cell styles. Mouse-dragged column widths
+are temporary; Format > Column width stores widths in the workbook. Number and
+currency formats use two decimals, percent multiplies display only; exact values
+are unchanged. Currency currently uses a dollar symbol, with no locale engine.
+
+Measured fixture: 1,000 x 26, 500 formulas depending on A1. On this machine the
+native headless benchmark measured 6 ms initial display, 5 ms input edit, 501
+recalculated cells, and 41 MiB peak RSS. This excludes OS events and repainting.
+Target for this fixture: input edit under 250 ms and peak RSS under 256 MiB.
+The tests compare 40 edit sequences against a full-calculation oracle.
+
+ODS subset: ODF 1.3 ZIP with mimetype first/uncompressed; content.xml and manifest.
+Read/write numeric/text/boolean values, supported OpenFormula functions/references,
+basic number/currency/percent/fraction styles, bold, three font families, font size,
+column width/alignment. Numbers export at 15 significant digits; exact rational
+identity and raw numeric spelling need .lcalc. Imports are new unsaved workbooks;
+the original ODS path is never the native save target. Unsupported formulas,
+merged cells, named expressions, validation, annotations and detected drawings
+are rejected. Fonts may substitute to Helvetica/Times/Menlo. Complex layout,
+external styles.xml definitions and arbitrary ODS documents are not supported.
+No OpenOffice/LibreOffice round-trip acceptance has been performed on this host.
+Sources:
+https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part3-schema.html
+https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part2-packages.html

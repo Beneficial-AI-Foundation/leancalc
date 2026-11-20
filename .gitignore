@@ -1,0 +1,33 @@
+# Local records and credentials
+/answers.*
+*_notes.txt
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*
+.github-token*
+/.codex/
+/.agents/
+/.aws/
+
+# Regenerable applications, build products, diagnostics and drafts
+/dist/
+/tmp/
+/output/
+/.lean-calc-build/
+/lean_calc/generated/
+__pycache__/
+*.py[cod]
+*.olean
+*.ilean
+*.o
+*.log
+*.aux
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+.DS_Store

@@ -1,0 +1,3 @@
+C - Column chart
+Source: output/logo-candidates/C-column-chart.png
+Chosen by the user; packaged unchanged at macOS icon sizes.

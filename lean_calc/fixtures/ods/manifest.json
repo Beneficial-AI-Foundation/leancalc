@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "source_commit": "6a2f74207300e1eb0c86da8d2294d74c5e8a77cb",
+  "fixtures": [
+    {
+      "file": "sampledata.ods",
+      "url": "https://raw.githubusercontent.com/apache/openoffice/6a2f74207300e1eb0c86da8d2294d74c5e8a77cb/test/testgui/data/sc/sampledata.ods",
+      "sha256": "35b5d15e649c6c498210e6eb25db7f2ae5bf3d23fce811dfbd528414470dcaaf",
+      "expected": "reject",
+      "reason": "outside declared import subset; precise diagnostic recorded by corpus test",
+      "diagnostic": "table:content-validations"
+    },
+    {
+      "file": "SubtotalsSampleFile.ods",
+      "url": "https://raw.githubusercontent.com/apache/openoffice/6a2f74207300e1eb0c86da8d2294d74c5e8a77cb/test/testgui/data/sc/SubtotalsSampleFile.ods",
+      "sha256": "05b7a755973d2894661838215404264c9809eb4c77c2ba532a426d2742c2b53e",
+      "expected": "reject",
+      "reason": "outside declared import subset; precise diagnostic recorded by corpus test",
+      "diagnostic": "Unsupported text style property"
+    }
+  ]
+}

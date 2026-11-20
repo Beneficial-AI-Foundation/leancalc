@@ -1,0 +1,22 @@
+{
+  "release": "0.5.1",
+  "build": 11,
+  "sources": {
+    "SparseGrid.lean": "aeae93aee84cb22f31d23a2a7cce316cef95f66d2e95fffde25748db33089264",
+    "Features.lean": "bb241d0c8abb2f8486e6dbb8068aee406dea86b9e981f658fdaf426dbe74c2a3",
+    "FeatureTests.lean": "04cc8da14189fd58ccd35e9ea701d6f7580cc3463f09ddf65e2a99624dcac02b",
+    "objects.tcl": "39ad2eeb799c1129342ac2a565d0464853529122ca387fb24f1919d51e4bc973",
+    "Phase2.lean": "7401a0c499bac482433b89d968ba9afab8cab2374e73bc41ef9f20e28b157a62",
+    "MathFunctions.lean": "5c58399200a1d915bac3be50e34486ccb82aa32e22534de1215c5fc703fbcc6b",
+    "Incremental.lean": "533387a35979e19ca3cfc8ae540be1010e077ea72b65232ab91b47075a0ea309",
+    "Presentation.lean": "881308c312e1c50fb8b47a8461bd0b61857b331c6d452f2970c773e253cd0038",
+    "OpenDocument.lean": "c789bacf05c7628335ec43f739d0cec96436b27e88ef440dce89b5b80abcb582",
+    "LeanCalc.lean": "1248d5df082eef13bc00bdf6800c165b0941d71138f0dad1300361a595a90585",
+    "mac_documents.tcl": "3ef369b46492876fbb9810bb4e71028ad32dd0e4826f048c5abb3df82f2b67fd",
+    "bridge.c": "c22a11c5110a4df90827603bb606fead00796efaf4893d00a7dce99eb8479d88",
+    "build.py": "55e1e5db47add9773287970256a5bef137b1412add22897f27dbf581b2461c29",
+    "build_icon.py": "8f17ba134528efd842dbec4d8c354fa81b95d46c6bbf802c50c7310a952f264a",
+    "verify_bundle.py": "62463b9d34deb6072e40455fe6d1bcd324dc4793d8cf1434e8c95a1d0579a256",
+    "assets/LeanCalc.png": "88c1ccd19f1513cc7c08715370ba8d8fa9e0b2c05125989c3a99087f172577d2"
+  }
+}

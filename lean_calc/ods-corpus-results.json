@@ -1,0 +1,16 @@
+[
+  {
+    "file": "sampledata.ods",
+    "sha256": "35b5d15e649c6c498210e6eb25db7f2ae5bf3d23fce811dfbd528414470dcaaf",
+    "source_unchanged": true,
+    "status": "expected rejection",
+    "diagnostic": "Unsupported ODS feature: table:content-validations. The original file is unchanged."
+  },
+  {
+    "file": "SubtotalsSampleFile.ods",
+    "sha256": "05b7a755973d2894661838215404264c9809eb4c77c2ba532a426d2742c2b53e",
+    "source_unchanged": true,
+    "status": "expected rejection",
+    "diagnostic": "Unsupported text style property: fo:color"
+  }
+]

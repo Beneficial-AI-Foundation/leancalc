@@ -1,0 +1,61 @@
+LeanCalc 0.5.0, build 10 — 18 November 2026
+Section 4 implementation and acceptance checklist
+
+The requested independent implementation work has been carried through all five
+phases to a documented, bounded scope. This is NOT a claim that all exit gates
+passed. Desktop acceptance and live OpenOffice comparison remain blocked.
+
+PHASE 1 — Implementation retained; original 61-test baseline retained.
+User previously confirmed fast navigation. Exit gate still requires logged-in
+macOS interactive launch/edit/navigation/clipboard/undo/save/conflict/cancel.
+
+PHASE 2 — Workbook operations, mixed/cross-sheet refs, CSV, picking, sheet tabs,
+rectangular clipboard/fill and structural edits implemented. Native/handler tests
+cover reference rules, cycles, quoted fields and version 1/2 migrations.
+Desktop acceptance of dialogs, selection and tab controls remains pending.
+
+PHASE 3 — Sparse ordered-map working sheets and sparse result cache; dimensions
+100–1000 rows x 26 columns, up to 32 sheets. Dependency invalidation, full-oracle
+regression, find/sort/filter, fonts/columns, numeric/date formatting and printable
+HTML implemented. DATE uses a strict Gregorian 1899-12-30 epoch, 1900–9999 bounds;
+rounding remains exact half-away-from-zero. Named fixture: 500 dependencies across
+26,000 cells. Target <250 ms/edit and <256 MiB peak; this host 4 ms, 40 MiB.
+Desktop repaint and print appearance checks remain pending.
+
+PHASE 4 — Declared ODS/OpenFormula subset, bounded XML/ZIP reader, explicit
+unsupported-content rejection, generated round trips and ODF 1.3 schema checks.
+Pinned real Apache OpenOffice fixtures with hashes exercise rejection paths.
+Native objects/date formats cannot silently disappear on ODS export: export
+rejects them. Original ODS input is never the native Save target. XLSX remains a
+separate future adapter. Live Apache OpenOffice comparison/roundtrip has NOT run.
+
+PHASE 5 — Named ranges, advanced conditional/lookup/text/date functions,
+validation, conditional colors, bar/line charts, embedded PNGs, refreshable
+single-key pivot tables, and pure declarative custom-function packs implemented.
+Each has native v4 persistence, UI commands, regression checks and example files.
+No executable macros; a permission/execution model is still required for those.
+Scope, limits, cut/sort behavior and explicit conversions are in LeanCalc.pdf.
+Desktop feature-window acceptance remains pending.
+
+CONCRETE BLOCKERS (attempted in this session)
+- /usr/bin/open dist/LeanCalc.app: LaunchServices -10822,
+  kLSServerCommunicationErr; registration/recent-items server unavailable.
+- Native Tk GUI initialization aborts before the app window can run in sandbox.
+- Official OpenOffice 4.1.16 macOS installer downloaded; hdiutil attach -readonly
+  -nobrowse failed with "Device not configured". No local soffice is installed.
+These are not passing tests; headless widget adapters cannot establish desktop
+appearance, Finder activation, real Tk repaint latency or OpenOffice agreement.
+
+NEXT ACCEPTANCE SESSION
+1. Launch dist/LeanCalc.app in a logged-in desktop. Confirm title 0.5.0.
+2. Run --gui-self-test and --gui-render-benchmark from its MacOS executable.
+3. Exercise new Insert/Data commands with Features-gallery.lcalc and
+   Pivot-gallery.lcalc. Check chart/image tabs, colored cells, validation
+   cancellation, object removal/undo, pivot refresh, print preview and reopen.
+4. Open Interoperability.ods in Apache OpenOffice Calc: Sheet1 A1=2, B1=3;
+   Annual total A1=5; preserve literal 001, Unicode text, currency/bold and widths.
+   Save a separate ODS and run --ods-inspect on it. Record exact values and all
+   style differences/rejections; expand the declared subset where needed.
+5. Record desktop/Calc versions and results before marking these exit gates done.
+
+Formal verification remains blank by user request.

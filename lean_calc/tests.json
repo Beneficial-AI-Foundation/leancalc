@@ -1,0 +1,246 @@
+[
+  {
+    "id": 1,
+    "description": "First cell address"
+  },
+  {
+    "id": 2,
+    "description": "Last cell address"
+  },
+  {
+    "id": 3,
+    "description": "Lowercase addresses"
+  },
+  {
+    "id": 4,
+    "description": "Whitespace around addresses"
+  },
+  {
+    "id": 5,
+    "description": "Reject row zero"
+  },
+  {
+    "id": 6,
+    "description": "Reject row beyond sheet"
+  },
+  {
+    "id": 7,
+    "description": "Reject column beyond sheet"
+  },
+  {
+    "id": 8,
+    "description": "Reject missing row"
+  },
+  {
+    "id": 9,
+    "description": "Address round-trip across all 2600 cells"
+  },
+  {
+    "id": 10,
+    "description": "Empty sheet dimensions and contents"
+  },
+  {
+    "id": 11,
+    "description": "Parse positive integer"
+  },
+  {
+    "id": 12,
+    "description": "Parse negative decimal"
+  },
+  {
+    "id": 13,
+    "description": "Parse leading decimal point"
+  },
+  {
+    "id": 14,
+    "description": "Parse explicit plus"
+  },
+  {
+    "id": 15,
+    "description": "Reject multiple decimal points"
+  },
+  {
+    "id": 16,
+    "description": "Reject lone decimal point"
+  },
+  {
+    "id": 17,
+    "description": "Exact decimal addition"
+  },
+  {
+    "id": 18,
+    "description": "Display terminating decimal"
+  },
+  {
+    "id": 19,
+    "description": "Display repeating result as fraction"
+  },
+  {
+    "id": 20,
+    "description": "Preserve Unicode text"
+  },
+  {
+    "id": 21,
+    "description": "Formula addition"
+  },
+  {
+    "id": 22,
+    "description": "Formula subtraction"
+  },
+  {
+    "id": 23,
+    "description": "Formula multiplication"
+  },
+  {
+    "id": 24,
+    "description": "Formula division"
+  },
+  {
+    "id": 25,
+    "description": "Multiplication precedence"
+  },
+  {
+    "id": 26,
+    "description": "Parentheses precedence"
+  },
+  {
+    "id": 27,
+    "description": "Left-associative subtraction"
+  },
+  {
+    "id": 28,
+    "description": "Left-associative division"
+  },
+  {
+    "id": 29,
+    "description": "Unary minus and plus"
+  },
+  {
+    "id": 30,
+    "description": "Formula whitespace"
+  },
+  {
+    "id": 31,
+    "description": "Reference another cell"
+  },
+  {
+    "id": 32,
+    "description": "Recalculate changed dependency"
+  },
+  {
+    "id": 33,
+    "description": "Blank references equal zero"
+  },
+  {
+    "id": 34,
+    "description": "Text reference is an error"
+  },
+  {
+    "id": 35,
+    "description": "Division by zero error"
+  },
+  {
+    "id": 36,
+    "description": "Direct circular reference"
+  },
+  {
+    "id": 37,
+    "description": "Indirect circular reference"
+  },
+  {
+    "id": 38,
+    "description": "Out-of-range reference error"
+  },
+  {
+    "id": 39,
+    "description": "Unknown function error"
+  },
+  {
+    "id": 40,
+    "description": "Reject trailing expression tokens"
+  },
+  {
+    "id": 41,
+    "description": "Reject unmatched parentheses"
+  },
+  {
+    "id": 42,
+    "description": "Rectangular SUM"
+  },
+  {
+    "id": 43,
+    "description": "Reversed SUM endpoints"
+  },
+  {
+    "id": 44,
+    "description": "SUM skips text and blank cells"
+  },
+  {
+    "id": 45,
+    "description": "SUM propagates formula errors"
+  },
+  {
+    "id": 46,
+    "description": "Formula length limit"
+  },
+  {
+    "id": 47,
+    "description": "Apostrophe forces literal text"
+  },
+  {
+    "id": 48,
+    "description": "Editing affects only chosen cell"
+  },
+  {
+    "id": 49,
+    "description": "Out-of-bounds edit is unchanged"
+  },
+  {
+    "id": 50,
+    "description": "Undo restores previous sheet"
+  },
+  {
+    "id": 51,
+    "description": "Redo restores undone edit"
+  },
+  {
+    "id": 52,
+    "description": "New edit clears redo history"
+  },
+  {
+    "id": 53,
+    "description": "Identical edit does not create undo history"
+  },
+  {
+    "id": 54,
+    "description": "File round-trip preserves formulas and Unicode"
+  },
+  {
+    "id": 55,
+    "description": "Reject malformed file"
+  },
+  {
+    "id": 56,
+    "description": "Reject unsupported file version"
+  },
+  {
+    "id": 57,
+    "description": "Reject incorrect sheet dimensions"
+  },
+  {
+    "id": 58,
+    "description": "Reject oversized or NUL-containing cells"
+  },
+  {
+    "id": 59,
+    "description": "Native main thread and noninteractive startup"
+  },
+  {
+    "id": 60,
+    "description": "Tcl bridge preserves text without evaluation"
+  },
+  {
+    "id": 61,
+    "description": "Atomic save round-trip and conflict protection"
+  }
+]

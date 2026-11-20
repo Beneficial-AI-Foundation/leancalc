@@ -1,0 +1,39 @@
+ODS subset in LeanCalc 0.5.0 / native v4
+
+VALUES
+Numbers: export 15 significant decimal digits, intentional precision conversion.
+Text: UTF-8, XML punctuation, repeated spaces/tabs/newlines and literal numerics.
+Boolean: converts to numeric 1/0. Native rational identity is not an ODS guarantee.
+Date/time typed cells: rejected; ISO date display currently native-only.
+
+FORMULAS
+A1 rectangles, anchors, sheet names, arithmetic, comparisons, declared built-ins.
+Custom functions and named expressions: rejected. Unknown functions: rejected.
+COUNTIF criteria use literal text or numeric comparisons; no wildcard matching.
+Lookup subset is exact-only. DATE is valid Gregorian integer arguments only.
+Input must use of:= OpenFormula namespace syntax. No external references.
+
+BASIC STYLE
+Two-decimal number, dollar currency, percent; rational fraction style.
+Font family maps to Helvetica/Times/Menlo (explicit substitution); size and bold.
+Column widths/alignment within native bounds. Other styling/merges rejected.
+Separate styles.xml definitions are not resolved by this initial adapter.
+
+OBJECTS AND PRESERVATION
+Native v4 names, validations, conditional rules, charts, embedded PNGs, pivot
+specifications and custom functions round-trip exactly in .lcalc. ODS export
+rejects any of those objects; no silent flattening. Native date styles likewise
+reject. Imported ODS always becomes a NEW UNSAVED workbook and cannot overwrite
+the original via native Save. Page setup/view preferences/app metadata are outside
+the subset. Rich text, annotations, links, drawings, external sources, pivots,
+scenarios, consolidation and executable scripts are explicitly rejected.
+
+TEST EVIDENCE
+- Generated Interoperability.ods: values/formulas/basic-style round trip, ZIP
+  mimetype first/uncompressed, content.xml validates against OASIS ODF 1.3 RNG.
+- Real files pinned to Apache OpenOffice commit in manifest.json:
+  sampledata.ods: rejects table:content-validations.
+  SubtotalsSampleFile.ods: rejects unsupported text-style properties.
+- Original files are retained byte-for-byte, with recorded SHA-256.
+- Live Calc comparison and a Calc-saved roundtrip: BLOCKED, NOT VERIFIED.
+  See ../../phase-completion.txt. These rejection tests do not establish parity.
