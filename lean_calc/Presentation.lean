@@ -119,7 +119,7 @@ def htmlEscape (s : String) : String :=
 
 def printHTML (m : Model) : String := Id.run do
   let rect := usedRect m.sheet
-  let mut html := "<!doctype html><meta charset=\"utf-8\"><title>" ++ htmlEscape m.book[m.active]!.name ++ "</title><style>body{font:12px -apple-system,sans-serif;color:#222}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px;white-space:pre-wrap}th{background:#eee}@page{size:landscape;margin:12mm}@media print{thead{display:table-header-group}tr{break-inside:avoid}}</style><h1>" ++ htmlEscape m.book[m.active]!.name ++ "</h1><table><thead><tr><th></th>"
+  let mut html := "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>" ++ htmlEscape m.book[m.active]!.name ++ "</title><style>body{font:12px -apple-system,sans-serif;color:#222}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px;white-space:pre-wrap}th{background:#eee}@page{size:landscape;margin:12mm}@media print{thead{display:table-header-group}tr{break-inside:avoid}}</style><h1>" ++ htmlEscape m.book[m.active]!.name ++ "</h1><table><thead><tr><th></th>"
   for col in [:rect.right+1] do html := html ++ "<th>" ++ String.singleton (Char.ofNat (65+col)) ++ "</th>"
   html := html ++ "</tr></thead><tbody>"
   for row in [:rect.bottom+1] do

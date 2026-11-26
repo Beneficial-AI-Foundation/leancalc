@@ -49,7 +49,7 @@ Generated apps and build files are intentionally excluded from Git.
 
 Tests and documentation
 -----------------------
-The current release passes 490 named native/headless checks, including 17
+The current release passes 495 named native/headless checks, including 17
 file-opening checks. For a standalone recheck and PDF build:
 
   python3 lean_calc/build_document.py

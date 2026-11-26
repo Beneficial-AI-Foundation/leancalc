@@ -78,6 +78,12 @@ def run : IO Unit := do
   let chartChanged := editCell chart 26 "40"
   check "Charts update after source edits" ((← must (Features.series chartChanged.book 0 chartChanged.book[0]!.objects[4]!))[1]!.2 == 40)
   let image ← must (Features.addObject chart {kind:="image",title:="Pixel",data:="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQa83+DwADwQIGhkJ1vwAAAABJRU5ErkJggg=="})
+  let pixel := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQa83+DwADwQIGhkJ1vwAAAABJRU5ErkJggg=="
+  check "Images accept a complete PNG" (validPNG pixel)
+  check "Images reject truncated PNG data" (!validPNG "iVBORw0KGgoAAAA" && !validPNG (String.ofList (pixel.toList.take 60)) && (Features.addObject chart {kind:="image",title:="Cut",data:="iVBORw0KGgoAAAA"}).toOption.isNone)
+  check "Images reject corrupted PNG chunks" (!validPNG (pixel.replace "nGMQa83" "nGMQa84"))
+  check "Images reject attribute-breaking characters" (!validPNG (pixel ++ "\"x"))
+  check "Printable HTML declares a document language" (((Presentation.printHTML image).splitOn "<html lang=\"en\">").length == 2)
   let (reopened,_) ← must (decodeBook (encodeBook image.book 0))
   check "Native version 4 preserves all workbook objects exactly" (reopened == image.book)
   check "Removing an object is undoable" ((undoModel (← must (Features.removeObject image 5))).book == image.book)

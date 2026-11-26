@@ -43,7 +43,7 @@ def main():
     if '19 save-and-tabs checks passed' not in save_tabs.stdout:
         raise RuntimeError('Expected 19 save-and-tabs checks.')
     extra_names = []
-    for option, log, expected in [('--math-test', 'math-test-results.log', 82), ('--stage3-test', 'stage3-test-results.log', 30), ('--ods-test', 'ods-test-results.log', 15), ('--stage3-interaction-test', 'stage3-interaction-test-results.log', 8), ('--features-test', 'features-test-results.log', 81), ('--features-interaction-test', 'features-interaction-test-results.log', 13), ('--document-open-test', 'document-open-test-results.log', 17)]:
+    for option, log, expected in [('--math-test', 'math-test-results.log', 82), ('--stage3-test', 'stage3-test-results.log', 30), ('--ods-test', 'ods-test-results.log', 15), ('--stage3-interaction-test', 'stage3-interaction-test-results.log', 8), ('--features-test', 'features-test-results.log', 86), ('--features-interaction-test', 'features-interaction-test-results.log', 13), ('--document-open-test', 'document-open-test-results.log', 17)]:
         extra = subprocess.run([str(binary), option], cwd=ROOT, check=True, capture_output=True, text=True)
         (ROOT/'lean_calc'/log).write_text(extra.stdout)
         passed = [line.removeprefix('PASS: ') for line in extra.stdout.splitlines() if line.startswith('PASS: ')]
