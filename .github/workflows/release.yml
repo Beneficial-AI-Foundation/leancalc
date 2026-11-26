@@ -1,0 +1,132 @@
+name: Release
+
+# Build the LeanCalc native binary and attach it to the GitHub Release. Triggered
+# by pushing a version tag (e.g. `v0.5.1`), or manually.
+#
+# This is the light build: it compiles the Lean sources to the native `LeanCalc`
+# binary (mirroring lean_calc/build.py) and ships it with the vendored Tcl/Tk 9
+# runtime dylibs. It does NOT produce the full signed .app bundle with the manual,
+# icon, Finder integration and Tcl/Tk data trees — run `python3 lean_calc/build.py`
+# locally for that (it also needs LaTeX/latexmk). See RELEASE.txt in the archive.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: macos-arm64
+    # LeanCalc is Apple-silicon macOS only (macOS 14+, Tcl/Tk 9).
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan + Lean (pinned in lean_calc/lean-toolchain)
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain "$(cat lean_calc/lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Install native build dependencies (static GMP + libuv)
+        run: brew install gmp libuv
+
+      - name: Build the LeanCalc native binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LEAN_PATH="$PWD/lean_calc"
+          export LEAN_CC=/usr/bin/clang
+          export MACOSX_DEPLOYMENT_TARGET=14.0
+          SDK="$(xcrun --show-sdk-path)"
+          LEANLIB="$(dirname "$(dirname "$(command -v leanc)")")/lib"
+          mkdir -p lean_calc/generated app/Contents/MacOS app/Contents/Frameworks
+
+          MODULES="SparseGrid LeanCalcCore MathFunctions Phase2 Phase2Tests \
+                   AdvancedTests Incremental Features Presentation Stage3Tests \
+                   OpenDocument InterchangeTests FeatureTests LeanCalc"
+          for m in $MODULES; do
+            lean -R "$PWD/lean_calc" -o "lean_calc/$m.olean" \
+              -c "lean_calc/generated/$m.c" "lean_calc/$m.lean"
+          done
+
+          cp vendor/tcltk-9.0.4/libtcl9.0.dylib vendor/tcltk-9.0.4/libtcl9tk9.0.dylib \
+             app/Contents/Frameworks/
+
+          leanc -O2 -isysroot "$SDK" -I "$PWD/lean_calc/vendor/tcl9.0.4" \
+            -o app/Contents/MacOS/LeanCalc \
+            lean_calc/generated/SparseGrid.c lean_calc/generated/LeanCalcCore.c \
+            lean_calc/generated/MathFunctions.c lean_calc/generated/Phase2.c \
+            lean_calc/generated/Phase2Tests.c lean_calc/generated/AdvancedTests.c \
+            lean_calc/generated/Incremental.c lean_calc/generated/Features.c \
+            lean_calc/generated/Presentation.c lean_calc/generated/Stage3Tests.c \
+            lean_calc/generated/OpenDocument.c lean_calc/generated/InterchangeTests.c \
+            lean_calc/generated/FeatureTests.c lean_calc/generated/LeanCalc.c \
+            lean_calc/bridge.c lean_calc/interchange.c \
+            -I "$SDK/usr/include/libxml2" -I "$PWD/lean_calc/vendor/libarchive" \
+            -lxml2 -larchive.2 \
+            -L /opt/homebrew/lib -L "$LEANLIB" -L app/Contents/Frameworks \
+            -ltcl9.0 -ltcl9tk9.0 \
+            -Wl,-rpath,@executable_path/../Frameworks
+
+      - name: Headless self-test
+        run: app/Contents/MacOS/LeanCalc --self-test
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME:-dev}"
+          name="leancalc-${ver}-macos-arm64"
+          mkdir -p "dist/${name}/Frameworks"
+          cp app/Contents/MacOS/LeanCalc "dist/${name}/"
+          cp app/Contents/Frameworks/libtcl9.0.dylib \
+             app/Contents/Frameworks/libtcl9tk9.0.dylib "dist/${name}/Frameworks/"
+          cp README.txt LICENSE "dist/${name}/" 2>/dev/null || true
+          cat > "dist/${name}/RELEASE.txt" <<EOF
+          LeanCalc ${ver} (macos-arm64) — native binary build artifact
+
+          Apple-silicon macOS 14+ only. This archive holds the LeanCalc native
+          binary and the vendored Tcl/Tk 9.0.4 runtime dylibs (in Frameworks/,
+          resolved via @executable_path/../Frameworks). It is NOT the full app:
+          there is no manual, icon, Finder/.lcalc integration, code signing, or the
+          Tcl/Tk data trees the GUI needs to start.
+
+          Headless modes work, e.g.:
+            ./LeanCalc --self-test
+
+          For the full, runnable, signed LeanCalc.app, build from source on an
+          Apple-silicon Mac (needs the Tcl/Tk 9 runtime, LaTeX/latexmk, Homebrew
+          GMP/libuv):
+            python3 lean_calc/build.py
+          EOF
+          tar -C dist -czf "${name}.tar.gz" "${name}"
+          shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: |
+            leancalc-*.tar.gz
+            leancalc-*.tar.gz.sha256
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attach binaries to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/leancalc-*.tar.gz
+            dist/leancalc-*.tar.gz.sha256
+          generate_release_notes: true
