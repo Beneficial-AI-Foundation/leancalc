@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build, self-test
+    # LeanCalc is a native Apple-silicon macOS app (Lean -> C -> Tcl/Tk 9),
+    # macOS 14+. There is no Lake project and no Windows/Linux build.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # The build is driven by lean_calc/build.py, which also compiles the LaTeX
+      # manual, code-signs and bundles the full .app. CI does the light part: it
+      # compiles the Lean sources to the native `LeanCalc` binary (mirroring the
+      # Lean + leanc steps of build.py) and runs the headless self-tests. It does
+      # not build the manual, code-sign, or bundle the Tcl/Tk data trees.
+      - name: Install elan + Lean (pinned in lean_calc/lean-toolchain)
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain "$(cat lean_calc/lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Install native build dependencies (static GMP + libuv)
+        run: brew install gmp libuv
+
+      - name: Build the LeanCalc native binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LEAN_PATH="$PWD/lean_calc"
+          export LEAN_CC=/usr/bin/clang
+          export MACOSX_DEPLOYMENT_TARGET=14.0
+          SDK="$(xcrun --show-sdk-path)"
+          LEANLIB="$(dirname "$(dirname "$(command -v leanc)")")/lib"
+          mkdir -p lean_calc/generated app/Contents/MacOS app/Contents/Frameworks
+
+          # Compile the Lean modules to C + .olean, in dependency order (the list
+          # and order come from lean_calc/build.py). This type-checks every module.
+          MODULES="SparseGrid LeanCalcCore MathFunctions Phase2 Phase2Tests \
+                   AdvancedTests Incremental Features Presentation Stage3Tests \
+                   OpenDocument InterchangeTests FeatureTests LeanCalc"
+          for m in $MODULES; do
+            lean -R "$PWD/lean_calc" -o "lean_calc/$m.olean" \
+              -c "lean_calc/generated/$m.c" "lean_calc/$m.lean"
+          done
+
+          # The vendored Tcl/Tk 9 runtime dylibs are a link and launch dependency
+          # (they are @rpath-based). Placing them in ../Frameworks relative to the
+          # binary lets @executable_path/../Frameworks resolve for the self-tests.
+          # This is NOT the full app bundle (no _tcl_data/_tk_data, no code signing).
+          cp vendor/tcltk-9.0.4/libtcl9.0.dylib vendor/tcltk-9.0.4/libtcl9tk9.0.dylib \
+             app/Contents/Frameworks/
+
+          leanc -O2 -isysroot "$SDK" -I "$PWD/lean_calc/vendor/tcl9.0.4" \
+            -o app/Contents/MacOS/LeanCalc \
+            lean_calc/generated/SparseGrid.c lean_calc/generated/LeanCalcCore.c \
+            lean_calc/generated/MathFunctions.c lean_calc/generated/Phase2.c \
+            lean_calc/generated/Phase2Tests.c lean_calc/generated/AdvancedTests.c \
+            lean_calc/generated/Incremental.c lean_calc/generated/Features.c \
+            lean_calc/generated/Presentation.c lean_calc/generated/Stage3Tests.c \
+            lean_calc/generated/OpenDocument.c lean_calc/generated/InterchangeTests.c \
+            lean_calc/generated/FeatureTests.c lean_calc/generated/LeanCalc.c \
+            lean_calc/bridge.c lean_calc/interchange.c \
+            -I "$SDK/usr/include/libxml2" -I "$PWD/lean_calc/vendor/libarchive" \
+            -lxml2 -larchive.2 \
+            -L /opt/homebrew/lib -L "$LEANLIB" -L app/Contents/Frameworks \
+            -ltcl9.0 -ltcl9tk9.0 \
+            -Wl,-rpath,@executable_path/../Frameworks
+
+      - name: Headless self-tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=app/Contents/MacOS/LeanCalc
+          "$BIN" --self-test
+          "$BIN" --phase2-self-test
+          "$BIN" --interaction-self-test
+          "$BIN" --formula-picking-test
+          "$BIN" --save-tabs-test
