@@ -78,6 +78,12 @@ def run : IO Unit := do
   let chartChanged := editCell chart 26 "40"
   check "Charts update after source edits" ((← must (Features.series chartChanged.book 0 chartChanged.book[0]!.objects[4]!))[1]!.2 == 40)
   let image ← must (Features.addObject chart {kind:="image",title:="Pixel",data:="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQa83+DwADwQIGhkJ1vwAAAABJRU5ErkJggg=="})
+  let pixel := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQa83+DwADwQIGhkJ1vwAAAABJRU5ErkJggg=="
+  check "Images accept a complete PNG" (validPNG pixel)
+  check "Images reject truncated PNG data" (!validPNG "iVBORw0KGgoAAAA" && !validPNG (String.ofList (pixel.toList.take 60)) && (Features.addObject chart {kind:="image",title:="Cut",data:="iVBORw0KGgoAAAA"}).toOption.isNone)
+  check "Images reject corrupted PNG chunks" (!validPNG (pixel.replace "nGMQa83" "nGMQa84"))
+  check "Images reject attribute-breaking characters" (!validPNG (pixel ++ "\"x"))
+  check "Printable HTML declares a document language" (((Presentation.printHTML image).splitOn "<html lang=\"en\">").length == 2)
   let (reopened,_) ← must (decodeBook (encodeBook image.book 0))
   check "Native version 4 preserves all workbook objects exactly" (reopened == image.book)
   check "Removing an object is undoable" ((undoModel (← must (Features.removeObject image 5))).book == image.book)
@@ -124,6 +130,9 @@ def run : IO Unit := do
   check "Thirty-two large sparse sheets retain only thirty-two populated entries" ((sparseBook.foldl (fun n s => n+s.cells.entries.size) 0) == 32 && (encodeBook sparseBook 0).length < 10000)
   let line : SheetObject := {kind:="chart",title:="One point",options:=#["line"]}
   check "Line charts render a marker for a single data point" (((← must (Features.svg m.book 0 line)).splitOn "<circle").length == 2)
+  let textOnly := editCell (editCell m 0 "North") 26 "South"
+  let blank : SheetObject := {kind:="chart",title:="Text only",first:=0,last:=26,options:=#["bar"]}
+  check "Charts over a range with no numbers say so" (((← must (Features.svg textOnly.book 0 blank)).splitOn "No numbers in A1:A2").length == 2)
   IO.FS.writeFile "lean_calc/examples/Features-gallery.lcalc" (encodeBook image.book 0)
   IO.FS.writeFile "lean_calc/examples/Pivot-gallery.lcalc" (encodeBook refreshed.book 1)
   IO.FS.writeFile "lean_calc/examples/Functions.json" exported

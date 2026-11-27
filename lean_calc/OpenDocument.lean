@@ -246,6 +246,9 @@ def bytes (book : Book) : IO ByteArray := IO.FS.withTempDir fun dir => do
   IO.FS.writeFile (dir / "mimetype") "application/vnd.oasis.opendocument.spreadsheet"
   IO.FS.writeFile (dir / "content.xml") xml
   IO.FS.writeFile (dir / "META-INF/manifest.xml") "<?xml version=\"1.0\"?><manifest:manifest xmlns:manifest=\"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0\" manifest:version=\"1.3\"><manifest:file-entry manifest:full-path=\"/\" manifest:version=\"1.3\" manifest:media-type=\"application/vnd.oasis.opendocument.spreadsheet\"/><manifest:file-entry manifest:full-path=\"content.xml\" manifest:media-type=\"text/xml\"/></manifest:manifest>"
+  -- Fixed timestamps make the same workbook always produce the same bytes.
+  let touched ← IO.Process.output {cmd:="/usr/bin/touch",args:=#["-t","202601010000","mimetype","content.xml","META-INF/manifest.xml"],cwd:=some dir}
+  if touched.exitCode != 0 then throw <| IO.userError ("ODS packaging failed: "++touched.stderr)
   for args in [#["-X","-0","book.ods","mimetype"],#["-X","book.ods","content.xml","META-INF/manifest.xml"]] do
     let result ← IO.Process.output {cmd:="/usr/bin/zip",args:=args,cwd:=some dir}
     if result.exitCode != 0 then throw <| IO.userError ("ODS packaging failed: "++result.stderr)

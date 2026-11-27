@@ -493,6 +493,72 @@ structure Document where
   active : Nat := 0
   deriving Inhabited, ToJson, FromJson
 
+/-- Strict base64 decoder (line breaks ignored); `none` on any malformed input. -/
+def base64Decode (s : String) : Option ByteArray := Id.run do
+  let digit (c : Char) : Option Nat :=
+    if 'A' ≤ c && c ≤ 'Z' then some (c.toNat - 'A'.toNat)
+    else if 'a' ≤ c && c ≤ 'z' then some (c.toNat - 'a'.toNat + 26)
+    else if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat + 52)
+    else if c == '+' then some 62 else if c == '/' then some 63 else none
+  let chars := (s.toList.filter (fun c => c != '\n' && c != '\r')).toArray
+  if chars.size % 4 != 0 then return none
+  let mut out := ByteArray.empty
+  let mut i := 0
+  while i < chars.size do
+    let last := i + 4 == chars.size
+    let pad := if last && chars[i+3]! == '=' then (if chars[i+2]! == '=' then 2 else 1) else 0
+    let mut acc := 0
+    for k in [:4] do
+      let c := chars[i+k]!
+      if k ≥ 4 - pad then
+        if c != '=' then return none
+        acc := acc * 64
+      else
+        match digit c with
+        | some d => acc := acc * 64 + d
+        | none => return none
+    out := out.push (acc / 65536 % 256).toUInt8
+    if pad < 2 then out := out.push (acc / 256 % 256).toUInt8
+    if pad < 1 then out := out.push (acc % 256).toUInt8
+    i := i + 4
+  return some out
+
+def crc32 (bytes : ByteArray) (start stop : Nat) : UInt32 := Id.run do
+  let mut crc : UInt32 := 0xFFFFFFFF
+  for i in [start:stop] do
+    crc := crc ^^^ bytes[i]!.toUInt32
+    for _ in [:8] do
+      crc := if crc &&& 1 == 1 then (crc >>> 1) ^^^ 0xEDB88320 else crc >>> 1
+  return crc ^^^ 0xFFFFFFFF
+
+/-- Structural PNG check matching the GUI's `calcCheckPNG` limits: signature, IHDR first
+with 1..4096 per side and ≤ 4 million pixels, every chunk in bounds with a valid CRC,
+at least one IDAT, and IEND as the final chunk. Catches truncated or corrupted data. -/
+def validPNG (data : String) : Bool := Id.run do
+  let some bytes := base64Decode data | return false
+  if bytes.size < 8 || bytes.size > 1400000 then return false
+  let sig : List UInt8 := [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+  if (List.range 8).any (fun i => bytes[i]! != sig[i]!) then return false
+  let be32 (p : Nat) : Nat := ((bytes[p]!.toNat * 256 + bytes[p+1]!.toNat) * 256 + bytes[p+2]!.toNat) * 256 + bytes[p+3]!.toNat
+  let mut pos := 8
+  let mut first := true
+  let mut sawData := false
+  while pos + 12 ≤ bytes.size do
+    let len := be32 pos
+    if pos + 12 + len > bytes.size then return false
+    let kind := String.ofList ((List.range 4).map (fun k => Char.ofNat bytes[pos+4+k]!.toNat))
+    if crc32 bytes (pos+4) (pos+8+len) != (be32 (pos+8+len)).toUInt32 then return false
+    if first then
+      if kind != "IHDR" || len != 13 then return false
+      let w := be32 (pos+8)
+      let h := be32 (pos+12)
+      if w < 1 || h < 1 || w > 4096 || h > 4096 || w*h > 4000000 then return false
+      first := false
+    if kind == "IDAT" then sawData := true
+    pos := pos + 12 + len
+    if kind == "IEND" then return sawData && pos == bytes.size
+  return false
+
 def validateBook (b : Book) : Except String Unit := do
   if b.isEmpty || b.size > 32 then throw "A workbook needs 1 to 32 sheets."
   let mut names : List String := []
@@ -536,7 +602,7 @@ def validateBook (b : Book) : Except String Unit := do
       if o.kind == "condition" then
         if o.options.size != 3 || !["<",">","=","<=",">=","<>"].contains o.options[0]! || (MathFunctions.literal o.options[1]!).isNone || !["#fee2e2","#dcfce7","#fef3c7","#dbeafe"].contains o.options[2]! then throw "Invalid conditional format."
       if o.kind == "chart" && (o.options.size != 1 || !["bar","line"].contains o.options[0]!) then throw "Invalid chart type."
-      if o.kind == "image" && (!o.data.startsWith "iVBORw0KGgo" || !o.data.toList.all (fun c => c.isAlphanum || "+/=\n\r".contains c)) then throw "Images must contain bounded PNG data."
+      if o.kind == "image" && !validPNG o.data then throw "Images must contain bounded PNG data."
       if o.kind == "pivot" && (o.options.size != 4 || !["SUM","COUNT","AVERAGE","MIN","MAX"].contains o.options[3]! || o.options[1]!.toNat?.isNone || o.options[2]!.toNat?.isNone) then throw "Invalid pivot definition."
     if (s.cells.size < 2600 || s.cells.size > 26000 || s.cells.size%26 != 0) || !s.cells.all validCell then throw "Invalid sheet dimensions or cell content."
 structure SparseSheet where

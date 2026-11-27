@@ -34,7 +34,7 @@ LeanCalc 0.5.1 \quad | \quad Lean 4.35.0-rc3 \quad | \quad 18 November 2026
 \note{\textbf{Version 0.5.1.} Multiple named sheets, cross-sheet and
 anchored references, formula range picking, worksheet tabs, CSV, 81 function names,
 incremental recalculation, formatting, 1,000-row sheets, and a limited ODS adapter. The engine and application commands are written in Lean, compiled to C,
-and linked into a native macOS app. All \textbf{490 native/headless checks pass}.}
+and linked into a native macOS app. All \textbf{496 native/headless checks pass}.}
 \vspace{10pt}
 \tableofcontents
 \vfill
@@ -228,7 +228,8 @@ appear in the objects window and as SVG in printable HTML.\\
 Images & Insert $>$ PNG image embeds the file, anchored at the selected cell.
 Maximum 1.4 MB compressed, 4 million pixels, 4,096 pixels per side. The objects
 window scales the preview; printable HTML embeds it. Native save retains the
-original PNG; no external file is needed on reopening.\\
+original PNG; no external file is needed on reopening. A workbook whose
+embedded PNG is truncated or corrupted is refused on opening.\\
 Pivot tables & Select a range including one header row; Insert $>$ Pivot table.
 Choose a new sheet name and, for example, \code{A,B,SUM}. One grouping column and
 one value column; SUM, COUNT (nonempty values), AVERAGE, MIN or MAX. Blank groups
@@ -500,7 +501,7 @@ The toolchain is Lean 4.35.0-rc3, Apple command-line tools, Python 3.9+, Homebre
 static GMP/libuv, Tcl/Tk 9.0.4, and LaTeX/latexmk. The supplied runtime path can be
 overridden. Keep generated C files unedited.
 
-\textbf{Status.} All 490 native/headless checks pass and the app signature verifies.
+\textbf{Status.} All 496 native/headless checks pass and the app signature verifies.
 The user accepted Phase 1's responsiveness. The Phase 2 desktop suite still aborts
 at macOS GUI initialization in this sandbox, so new controls, dialogs, visual
 selection, and Finder activation need desktop acceptance. Headless tests exercise
@@ -511,10 +512,10 @@ painting work on a desktop and writes \code{dist/LeanCalc-render-benchmark.log}.
 
 \clearpage
 \section{Unit tests}
-There are \textbf{490 named native/headless checks}: the original 61 baseline
+There are \textbf{496 named native/headless checks}: the original 61 baseline
 checks, 17 editing-interaction checks, 12 display-cache checks, 87 Phase 2 engine
 checks, 23 Phase 2 command-handler checks, 25 formula-picking checks, 19 saving/tab
-checks, 82 math checks, 30 Phase 3 checks, 15 ODS checks, 8 Phase 3 interaction checks, 81 Phase 5 checks, and 13 Phase 5
+checks, 82 math checks, 30 Phase 3 checks, 15 ODS checks, 8 Phase 3 interaction checks, 87 Phase 5 checks, and 13 Phase 5
 interaction checks, and 17 document-open checks. A named check can contain several
 assertions. One differential check compares the new engine with the original
 arithmetic engine across 308 inputs. These are finite tests, not formal proofs.
@@ -986,59 +987,65 @@ also have desktop checks, excluded from the passing count.
 191 & Charts read a live source series.\\
 192 & Chart export escapes labels and creates SVG.\\
 193 & Charts update after source edits.\\
-194 & Native version 4 preserves all workbook objects exactly.\\
-195 & Removing an object is undoable.\\
-196 & ODS refuses to silently drop native workbook objects.\\
-197 & Pivot tables group repeated labels and sum values.\\
-198 & Pivot creation is one undo transaction.\\
-199 & Pivot refresh reads changed source values.\\
-200 & Pivot averages retain exact numeric results.\\
-201 & Pivot definitions survive native reopen and refresh.\\
-202 & A sparse working sheet stores only populated cells.\\
-203 & Clearing a sparse cell releases its entry.\\
-204 & The display cache stores no blank-cell results.\\
-205 & =SUM(Revenue) returns 60.\\
-206 & Cut moves complete named ranges with their cells.\\
-207 & Cut rejects partial named-range moves.\\
-208 & Pivot sources follow sheet renames.\\
-209 & Pivot sources follow inserted source columns.\\
-210 & Deleting a pivot key column is rejected explicitly.\\
-211 & Custom functions recalculate after named inputs change.\\
-212 & CSV replacement obeys validation rules.\\
-213 & Date formatting preserves serial values and displays ISO dates.\\
-214 & Date formatting survives native reopen.\\
-215 & Thirty-two large sparse sheets retain only thirty-two populated entries.\\
-216 & Line charts render a marker for a single data point.\\
-217 & Named-range menu saves the selected rectangle.\\
-218 & Custom-function menu defines a callable function.\\
-219 & Rejected cell validation preserves the workbook and draft.\\
-220 & Conditional-format menu paints matching cells.\\
-221 & Chart menu stores a source range and renders through canvas commands.\\
-222 & Undo removes a newly inserted chart.\\
-223 & Object removal uses one reversible workbook edit.\\
-224 & Function-pack menus round-trip declarative definitions.\\
-225 & PNG preflight accepts a small valid header.\\
-226 & PNG preflight rejects non-image input.\\
-227 & PNG preflight rejects excessive decoded dimensions.\\
-228 & Pivot menu creates and activates a summary sheet.\\
-229 & An unchanged pivot refresh does not add undo history.\\
-230 & Finder open requests wait until the interface is ready.\\
-231 & Queued Finder requests open a native workbook after startup.\\
-232 & Dropped paths preserve Unicode spaces and Tcl metacharacters.\\
-233 & Cancel keeps pending edits when another file is dropped.\\
-234 & Cancelled drops do not overwrite the original file.\\
-235 & Discard opens a file dropped onto a running app.\\
-236 & Invalid dropped workbooks leave the current workbook intact.\\
-237 & Missing dropped files leave the current workbook intact.\\
-238 & Multiple-file drops are rejected without silently replacing workbooks.\\
-239 & Unsupported file types receive a clear rejection.\\
-240 & Dropped CSV files import as new unsaved workbooks.\\
-241 & Dropped CSV formula-looking fields remain literal text.\\
-242 & Cancelling Save As cancels the document switch.\\
-243 & Dropped ODS files import without becoming the native Save target.\\
-244 & Document events cannot reenter an in-progress open dialog.\\
-245 & Deferred document events resume after the current operation.\\
-246 & Save-before-open persists edits before installing the dropped workbook.\\
+194 & Images accept a complete PNG.\\
+195 & Images reject truncated PNG data.\\
+196 & Images reject corrupted PNG chunks.\\
+197 & Images reject attribute-breaking characters.\\
+198 & Printable HTML declares a document language.\\
+199 & Native version 4 preserves all workbook objects exactly.\\
+200 & Removing an object is undoable.\\
+201 & ODS refuses to silently drop native workbook objects.\\
+202 & Pivot tables group repeated labels and sum values.\\
+203 & Pivot creation is one undo transaction.\\
+204 & Pivot refresh reads changed source values.\\
+205 & Pivot averages retain exact numeric results.\\
+206 & Pivot definitions survive native reopen and refresh.\\
+207 & A sparse working sheet stores only populated cells.\\
+208 & Clearing a sparse cell releases its entry.\\
+209 & The display cache stores no blank-cell results.\\
+210 & =SUM(Revenue) returns 60.\\
+211 & Cut moves complete named ranges with their cells.\\
+212 & Cut rejects partial named-range moves.\\
+213 & Pivot sources follow sheet renames.\\
+214 & Pivot sources follow inserted source columns.\\
+215 & Deleting a pivot key column is rejected explicitly.\\
+216 & Custom functions recalculate after named inputs change.\\
+217 & CSV replacement obeys validation rules.\\
+218 & Date formatting preserves serial values and displays ISO dates.\\
+219 & Date formatting survives native reopen.\\
+220 & Thirty-two large sparse sheets retain only thirty-two populated entries.\\
+221 & Line charts render a marker for a single data point.\\
+222 & Charts over a range with no numbers say so.\\
+223 & Named-range menu saves the selected rectangle.\\
+224 & Custom-function menu defines a callable function.\\
+225 & Rejected cell validation preserves the workbook and draft.\\
+226 & Conditional-format menu paints matching cells.\\
+227 & Chart menu stores a source range and renders through canvas commands.\\
+228 & Undo removes a newly inserted chart.\\
+229 & Object removal uses one reversible workbook edit.\\
+230 & Function-pack menus round-trip declarative definitions.\\
+231 & PNG preflight accepts a small valid header.\\
+232 & PNG preflight rejects non-image input.\\
+233 & PNG preflight rejects excessive decoded dimensions.\\
+234 & Pivot menu creates and activates a summary sheet.\\
+235 & An unchanged pivot refresh does not add undo history.\\
+236 & Finder open requests wait until the interface is ready.\\
+237 & Queued Finder requests open a native workbook after startup.\\
+238 & Dropped paths preserve Unicode spaces and Tcl metacharacters.\\
+239 & Cancel keeps pending edits when another file is dropped.\\
+240 & Cancelled drops do not overwrite the original file.\\
+241 & Discard opens a file dropped onto a running app.\\
+242 & Invalid dropped workbooks leave the current workbook intact.\\
+243 & Missing dropped files leave the current workbook intact.\\
+244 & Multiple-file drops are rejected without silently replacing workbooks.\\
+245 & Unsupported file types receive a clear rejection.\\
+246 & Dropped CSV files import as new unsaved workbooks.\\
+247 & Dropped CSV formula-looking fields remain literal text.\\
+248 & Cancelling Save As cancels the document switch.\\
+249 & Dropped ODS files import without becoming the native Save target.\\
+250 & Document events cannot reenter an in-progress open dialog.\\
+251 & Deferred document events resume after the current operation.\\
+252 & Save-before-open persists edits before installing the dropped workbook.\\
 % END ADVANCED CATALOGUE
 \bottomrule\end{longtable}
 

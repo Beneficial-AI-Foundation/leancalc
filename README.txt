@@ -29,7 +29,31 @@ Homebrew GMP and libuv (static libraries), and LaTeX/latexmk. Tcl/Tk 9.0.4 runti
 libraries and resources are included under vendor/tcltk-9.0.4. The build expects
 Apple-silicon Homebrew libraries under /opt/homebrew/lib.
 
+Install GMP, libuv and LaTeX (BasicTeX plus the packages the manual uses), then
+open a new terminal so latexmk is on the PATH:
+
+  brew install gmp libuv
+  brew install --cask basictex
+  sudo tlmgr update --self
+  sudo tlmgr install latexmk lastpage enumitem fancyhdr booktabs microtype \
+    psnfss mathpazo fpl palatino
+
+Homebrew's static GMP and libuv only run on the macOS version they were built for
+(currently 15 and 26). To keep macOS 14 support, build both for macOS 14 once
+(needs cmake; the build then uses them automatically):
+
+  python3 lean_calc/build_compat_libs.py
+
+Without them, the build warns and marks the app with the newer minimum macOS.
+
+Then build:
+
   python3 lean_calc/build.py
+
+LaTeX is only needed for the PDF manual. Without it, run every test and keep the
+existing LeanCalc.pdf:
+
+  python3 lean_calc/build.py --skip-manual
 
 The default Lean toolchain location is:
   ~/.elan/toolchains/leanprover--lean4---v4.35.0-rc3
@@ -49,7 +73,7 @@ Generated apps and build files are intentionally excluded from Git.
 
 Tests and documentation
 -----------------------
-The current release passes 490 named native/headless checks, including 17
+The current release passes 496 named native/headless checks, including 17
 file-opening checks. For a standalone recheck and PDF build:
 
   python3 lean_calc/build_document.py
