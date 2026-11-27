@@ -2,6 +2,7 @@
 """Check document routing metadata and the actual bundled icon representations."""
 from pathlib import Path
 import plistlib
+import subprocess
 import struct
 import zlib
 
@@ -17,6 +18,10 @@ def verify():
     assert native['UTTypeIdentifier'] == documents[0]['LSItemContentTypes'][0]
     assert native['UTTypeTagSpecification']['public.filename-extension'] == ['lcalc']
     assert (APP/'Resources/native-startup.tcl').read_bytes() == (ROOT/'lean_calc/mac_documents.tcl').read_bytes()
+    # The minimum macOS shown to users must match what the binary was built for.
+    listing = subprocess.check_output(['/usr/bin/otool', '-l', str(APP/'MacOS/LeanCalc')], text=True)
+    built_for = [line.split()[1] for line in listing.splitlines() if line.strip().startswith('minos ')]
+    assert built_for == [info['LSMinimumSystemVersion']], f'binary targets macOS {built_for}, Info.plist says {info["LSMinimumSystemVersion"]}'
     icon = (APP/'Resources'/info['CFBundleIconFile']).read_bytes()
     assert icon[:4] == b'icns' and struct.unpack('>I',icon[4:8])[0] == len(icon)
     # Ten required representations: (slot name, pixel size, accepted tags). The 16- and

@@ -15,6 +15,18 @@ SOURCE = ROOT / 'lean_calc'
 BUILD = ROOT / '.lean-calc-build'
 APP = ROOT / 'dist/LeanCalc.app'
 VERSION = 'leanprover--lean4---v4.35.0-rc3'
+MINIMUM_MACOS = '14.0'
+
+
+def version_key(text):
+    return tuple(int(part) for part in text.split('.'))
+
+
+def minimum_macos(library):
+    """Newest macOS version any object in a static library was built for."""
+    listing = subprocess.check_output(['/usr/bin/otool', '-l', str(library)], text=True)
+    found = [line.split()[1] for line in listing.splitlines() if line.strip().startswith('minos ')]
+    return max(found, key=version_key) if found else MINIMUM_MACOS
 
 
 def run(*args):
@@ -27,6 +39,8 @@ def main():
     parser.add_argument('--toolchain', type=Path, default=Path.home() / '.elan/toolchains' / VERSION)
     parser.add_argument('--tk-bundle', type=Path, default=ROOT / 'vendor/tcltk-9.0.4')
     parser.add_argument('--gui-test', action='store_true')
+    parser.add_argument('--skip-manual', action='store_true',
+                        help='Do not rebuild LeanCalc.pdf (no LaTeX needed); bundle the existing one.')
     options = parser.parse_args()
     toolchain = options.toolchain.resolve()
     runtime = options.tk_bundle.resolve()
@@ -64,17 +78,25 @@ def main():
         shutil.copytree(runtime / src, resources / dst, symlinks=False)
     shutil.copy2(SOURCE / 'mac_documents.tcl', resources / 'native-startup.tcl')
     os.environ['LEAN_CC'] = '/usr/bin/clang'
-    os.environ['MACOSX_DEPLOYMENT_TARGET'] = '14.0'
-    # Use macOS 14-compatible static GMP/libuv; the toolchain copies target macOS 15.
+    # Static GMP/libuv set the oldest macOS the app can run on. Prefer libraries
+    # built for macOS 14 by build_compat_libs.py; Homebrew's target its own macOS.
+    source = BUILD / 'compat-libs-14'
+    if not all((source / name).exists() for name in ('libgmp.a', 'libuv.a')):
+        source = Path('/opt/homebrew/lib')
     compat = BUILD / 'compat-libs'
     compat.mkdir(exist_ok=True)
     for name in ('libgmp.a', 'libuv.a'):
-        dependency = Path('/opt/homebrew/lib') / name
+        dependency = source / name
         if not dependency.exists():
             parser.error('Install Homebrew gmp and libuv (static libraries required).')
         if (compat / name).exists():
             (compat / name).unlink()
         shutil.copy2(dependency, compat / name)
+    minimum = max([MINIMUM_MACOS] + [minimum_macos(compat / name) for name in ('libgmp.a', 'libuv.a')], key=version_key)
+    if minimum != MINIMUM_MACOS:
+        print(f'WARNING: {source} libraries need macOS {minimum}, so the app will require macOS {minimum}.\n'
+              f'         For macOS {MINIMUM_MACOS} support, first run: python3 lean_calc/build_compat_libs.py', flush=True)
+    os.environ['MACOSX_DEPLOYMENT_TARGET'] = minimum
     sdk = subprocess.check_output(['/usr/bin/xcrun', '--show-sdk-path'], text=True).strip()
     run(toolchain / 'bin/leanc', '-O2', '-isysroot', sdk, '-I', SOURCE / 'vendor/tcl9.0.4', '-o', binaries / 'LeanCalc',
         generated / 'SparseGrid.c', generated / 'LeanCalcCore.c', generated / 'MathFunctions.c', generated / 'Phase2.c', generated / 'Phase2Tests.c', generated / 'AdvancedTests.c', generated / 'Incremental.c', generated / 'Features.c', generated / 'Presentation.c', generated / 'Stage3Tests.c', generated / 'OpenDocument.c', generated / 'InterchangeTests.c', generated / 'FeatureTests.c', generated / 'LeanCalc.c', SOURCE / 'bridge.c', SOURCE / 'interchange.c', '-I', Path(sdk) / 'usr/include/libxml2', '-I', SOURCE / 'vendor/libarchive', '-lxml2', '-larchive.2', '-L', compat, '-L', toolchain / 'lib', '-L', libraries, '-ltcl9.0', '-ltcl9tk9.0',
@@ -85,7 +107,7 @@ def main():
         'CFBundleDisplayName': 'LeanCalc', 'CFBundleIdentifier': 'local.productivity.LeanCalc',
         'CFBundleInfoDictionaryVersion': '6.0',
         'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.5.1', 'CFBundleVersion': '11',
-        'CFBundleIconFile': 'LeanCalc.icns', 'LSMinimumSystemVersion': '14.0',
+        'CFBundleIconFile': 'LeanCalc.icns', 'LSMinimumSystemVersion': minimum,
         'NSHighResolutionCapable': True,
         'CFBundleDocumentTypes': [
             {'CFBundleTypeName': 'LeanCalc workbook', 'CFBundleTypeRole': 'Editor',
@@ -129,7 +151,7 @@ def main():
     run(binaries / 'LeanCalc', '--self-test')
     if options.gui_test:
         run(binaries / 'LeanCalc', '--gui-self-test')
-    run(sys.executable, SOURCE / 'build_document.py')
+    run(sys.executable, SOURCE / 'build_document.py', *(['--skip-manual'] if options.skip_manual else []))
     shutil.copy2(ROOT / 'LeanCalc.pdf', resources / 'LeanCalc.pdf')
     for library in libraries.glob('*.dylib'):
         run('/usr/bin/codesign', '--force', '--sign', '-', library)

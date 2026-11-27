@@ -292,6 +292,7 @@ def showObjects : IO Unit := do
           cmd #[canvas,"create","text",toString (x+step/2),"315","-text",String.ofList (label.toList.take 12),"-width",toString (max 30 step)]
           cmd #[canvas,"create","text",toString (x+step/2),toString (if value < 0 then yy+10 else yy-10),"-text",MathFunctions.display value]
       if o.options[0]! == "line" && values.size >= 2 then cmd (points ++ #["-fill","#16856b","-width","2"])
+      if values.isEmpty then cmd #[canvas,"create","text","330","170","-text",Features.emptyMessage o,"-fill","#68736c"]
     else if o.kind == "image" then cmd #["calcObjectImage",frame,o.data]
     else
       let info := o.kind ++ ": " ++ o.title ++ "\nRange: " ++ address o.first ++ ":" ++ address o.last ++ "\n" ++ String.intercalate ", " o.options.toList ++ "\n" ++ o.data
@@ -827,7 +828,7 @@ def cellUIScript : String :=
   "    set box [.grid bbox $::calcRow $::calcColumn]\n" ++
   "    if {$box eq {}} {place forget .grid.editor; return}\n" ++
   "    lassign $box x y width height\n" ++
-  "    if {$x < 1 || $x+$width > [winfo width .grid]-1 || $y+$height > [winfo height .grid]-1} {\n" ++
+  "    if {$x < 1 || $x+$width > [winfo width .grid] || $y+$height > [winfo height .grid]} {\n" ++
   "        place forget .grid.editor\n" ++
   "        return\n" ++
   "    }\n" ++

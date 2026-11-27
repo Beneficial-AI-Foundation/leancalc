@@ -130,6 +130,9 @@ def run : IO Unit := do
   check "Thirty-two large sparse sheets retain only thirty-two populated entries" ((sparseBook.foldl (fun n s => n+s.cells.entries.size) 0) == 32 && (encodeBook sparseBook 0).length < 10000)
   let line : SheetObject := {kind:="chart",title:="One point",options:=#["line"]}
   check "Line charts render a marker for a single data point" (((← must (Features.svg m.book 0 line)).splitOn "<circle").length == 2)
+  let textOnly := editCell (editCell m 0 "North") 26 "South"
+  let blank : SheetObject := {kind:="chart",title:="Text only",first:=0,last:=26,options:=#["bar"]}
+  check "Charts over a range with no numbers say so" (((← must (Features.svg textOnly.book 0 blank)).splitOn "No numbers in A1:A2").length == 2)
   IO.FS.writeFile "lean_calc/examples/Features-gallery.lcalc" (encodeBook image.book 0)
   IO.FS.writeFile "lean_calc/examples/Pivot-gallery.lcalc" (encodeBook refreshed.book 1)
   IO.FS.writeFile "lean_calc/examples/Functions.json" exported

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check native tests and compile the LeanCalc manual and conversation record."""
+import argparse
 import json
 from pathlib import Path
 import shutil
@@ -15,6 +16,10 @@ def escape(text):
     return ''.join(mapping.get(c, c) for c in text)
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--skip-manual', action='store_true',
+                        help='Run every check but do not compile LeanCalc.pdf (no LaTeX needed).')
+    options = parser.parse_args()
     binary = ROOT/'dist/LeanCalc.app/Contents/MacOS/LeanCalc'
     if any((ROOT/'lean_calc'/name).stat().st_mtime > binary.stat().st_mtime
            for name in ('SparseGrid.lean', 'Features.lean', 'FeatureTests.lean', 'objects.tcl', 'mac_documents.tcl', 'LeanCalcCore.lean', 'MathFunctions.lean', 'Phase2.lean', 'Phase2Tests.lean', 'AdvancedTests.lean', 'Incremental.lean', 'Presentation.lean', 'Stage3Tests.lean', 'OpenDocument.lean', 'InterchangeTests.lean', 'LeanCalc.lean', 'bridge.c', 'interchange.c')):
@@ -43,7 +48,7 @@ def main():
     if '19 save-and-tabs checks passed' not in save_tabs.stdout:
         raise RuntimeError('Expected 19 save-and-tabs checks.')
     extra_names = []
-    for option, log, expected in [('--math-test', 'math-test-results.log', 82), ('--stage3-test', 'stage3-test-results.log', 30), ('--ods-test', 'ods-test-results.log', 15), ('--stage3-interaction-test', 'stage3-interaction-test-results.log', 8), ('--features-test', 'features-test-results.log', 86), ('--features-interaction-test', 'features-interaction-test-results.log', 13), ('--document-open-test', 'document-open-test-results.log', 17)]:
+    for option, log, expected in [('--math-test', 'math-test-results.log', 82), ('--stage3-test', 'stage3-test-results.log', 30), ('--ods-test', 'ods-test-results.log', 15), ('--stage3-interaction-test', 'stage3-interaction-test-results.log', 8), ('--features-test', 'features-test-results.log', 87), ('--features-interaction-test', 'features-interaction-test-results.log', 13), ('--document-open-test', 'document-open-test-results.log', 17)]:
         extra = subprocess.run([str(binary), option], cwd=ROOT, check=True, capture_output=True, text=True)
         (ROOT/'lean_calc'/log).write_text(extra.stdout)
         passed = [line.removeprefix('PASS: ') for line in extra.stdout.splitlines() if line.startswith('PASS: ')]
@@ -97,9 +102,16 @@ def main():
         catalogue = ''.join(f"{i:02d} & {escape(name)}.\\\\\n" for i, name in enumerate(extra_names, 1))
         source = start + '% BEGIN ADVANCED CATALOGUE\n' + catalogue + '% END ADVANCED CATALOGUE' + end
     tex.write_text(source)
+    if options.skip_manual:
+        print('Skipped the PDF manual (--skip-manual); LeanCalc.pdf is unchanged.')
+        return
+    latexmk = shutil.which('latexmk') or '/Library/TeX/texbin/latexmk'
+    if not Path(latexmk).exists():
+        raise SystemExit('latexmk not found: install LaTeX as described in README.txt, '
+                         'or rerun with --skip-manual to keep the existing LeanCalc.pdf.')
     out = ROOT/'tmp/pdfs/leancalc-latex'
     out.mkdir(parents=True, exist_ok=True)
-    subprocess.run([shutil.which('latexmk') or '/Library/TeX/texbin/latexmk', '-pdf',
+    subprocess.run([latexmk, '-pdf',
                     '-interaction=nonstopmode', '-halt-on-error', '-file-line-error',
                     '-outdir='+str(out), 'LeanCalc.tex'], cwd=ROOT, check=True)
     shutil.copy2(out/'LeanCalc.pdf', ROOT/'LeanCalc.pdf')

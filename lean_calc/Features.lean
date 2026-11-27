@@ -43,6 +43,8 @@ def series (b : Book) (si : Nat) (o : SheetObject) : Except String (Array (Strin
   return out
 
 def escape (s : String) := s.replace "&" "&amp;" |>.replace "<" "&lt;" |>.replace ">" "&gt;" |>.replace "\"" "&quot;"
+-- Shown instead of an empty plot when the source range holds no numbers.
+def emptyMessage (o : SheetObject) : String := "No numbers in " ++ address o.first ++ ":" ++ address o.last
 def svg (b : Book) (si : Nat) (o : SheetObject) : Except String String := do
   let values ← series b si o
   let lo := values.foldl (fun n p => min n p.2) 0
@@ -63,6 +65,7 @@ def svg (b : Book) (si : Nat) (o : SheetObject) : Except String String := do
     else s := s ++ "<rect x=\""++toString x++"\" y=\""++toString (min yy baseline)++"\" width=\""++toString (max 1 (step-2))++"\" height=\""++toString (max yy baseline-min yy baseline)++"\" fill=\"#16856b\"><title>"++escape label++": "++escape (MathFunctions.display n)++"</title></rect>"
     if values.size <= 12 then s := s ++ "<text x=\""++toString (x+step/2)++"\" y=\"315\" text-anchor=\"middle\" font-size=\"10\">"++escape (String.ofList (label.toList.take 12))++"</text>"
   if o.options[0]! == "line" then s := s ++ "<polyline points=\""++points++"\" fill=\"none\" stroke=\"#16856b\" stroke-width=\"2\"/>"
+  if values.isEmpty then s := s ++ "<text x=\"330\" y=\"170\" text-anchor=\"middle\" fill=\"#68736c\">" ++ escape (emptyMessage o) ++ "</text>"
   return s ++ "</svg>"
 
 def objectsHTML (m : Model) : String := Id.run do
